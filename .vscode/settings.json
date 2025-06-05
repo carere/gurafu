@@ -14,7 +14,7 @@
     "editor.defaultFormatter": "Shellomo.enhanced-toml"
   },
   "[html]": {
-    "editor.defaultFormatter": "vscode.html-language-features"
+    "editor.defaultFormatter": "biomejs.biome"
   },
   "[css]": {
     "editor.defaultFormatter": "biomejs.biome"
@@ -39,12 +39,11 @@
     "*.prototools": "toml"
   },
   "todo-tree.general.tags": ["BONUS", "PERF", "TODO"],
-  "tailwindCSS.classAttributes": ["class", "className"],
+  "tailwindCSS.classAttributes": ["class"],
   "tailwindCSS.experimental.classRegex": [
     ["cva\\(((?:[^()]|\\([^()]*\\))*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
     ["classList={{([^;]*)}}", "\\s*?[\"'`]([^\"'`]*).*?:"],
     ["cn\\(([^]*)\\)", "(?:'|\"|`)([^\"'`]*)(?:'|\"|`)"]
   ],
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "html.format.indentInnerHtml": true
+  "typescript.tsdk": "node_modules/typescript/lib"
 }

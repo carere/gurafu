@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-
 @plugin "@kobalte/tailwindcss";
+
 @custom-variant dark (&:where(.dark, .dark *, [data-kb-theme=dark], [data-kb-theme=dark] *));
 
 @theme inline {
@@ -180,34 +180,20 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+
   ::-webkit-scrollbar {
-    @apply w-4 :;
+    @apply w-4;
   }
+
   ::-webkit-scrollbar-thumb {
-    @apply bg-accent bg-clip-content border-4 border-transparent rounded-full :;
+    @apply bg-accent bg-clip-content border-4 border-transparent rounded-full;
   }
+
   ::-webkit-scrollbar-corner {
-    @apply hidden :;
-  }
-}
-
-@utility container {
-  @apply px-8 :;
-  @media (width >= --theme(--breakpoint-sm)) {
-    @apply max-w-none :;
-  }
-  @media (max-width: 640px) {
-    @apply px-4 :;
-  }
-}
-
-@utility step {
-  counter-increment: step;
-  &:before {
-    @apply inline-flex absolute justify-center items-center bg-muted mt-[-4px] ml-[-50px] border-4 border-background rounded-full w-9 h-9 font-mono font-medium text-base text-center -indent-px :;
-    content: counter(step);
+    @apply hidden;
   }
 }
