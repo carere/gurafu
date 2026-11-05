@@ -13,6 +13,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: post the explanation with `gh issue comment <number> --body "..."`, then `gh issue close <number>`. On an already-closed issue, `gh issue close --comment` drops the comment and still exits 0.
+- **Spec-branch ticket closure**: `/implement-spec` defines when each ticket is resolved. Use the explicit comment-then-close operation above and confirm `gh issue view <number> --json state` reports `CLOSED`. GitHub closing keywords only take effect when merging into the default branch; they do not close tickets merged into a spec branch.
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
