@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          proto-version: "0.63.2"
+          auto-install: true
+      - run: bun install --frozen-lockfile
+      - run: moon run gurafu:check gurafu:tsc gurafu:knip gurafu:build
+      - name: Deploy production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: production
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          gitHubToken: ${{ github.token }}
+      - name: Deploy PR preview
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        id: preview
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: preview --name pr-${{ github.event.pull_request.number }}
+          gitHubToken: ${{ github.token }}
+      - name: Verify deployment
+        if: steps.production.outcome == 'success' || steps.preview.outcome == 'success'
+        env:
+          DEPLOYMENT_URL: ${{ steps.preview.outputs.preview-url || 'https://gurafu.carere.dev' }}
+        run: |
+          curl --fail --show-error --retry 6 --retry-all-errors --retry-delay 5 --max-time 20 "$DEPLOYMENT_URL/" --output /dev/null
+          curl --fail --show-error --retry 6 --retry-all-errors --retry-delay 5 --max-time 20 "$DEPLOYMENT_URL/api/health"
+          curl --fail --show-error --retry 6 --retry-all-errors --retry-delay 5 --max-time 20 "$DEPLOYMENT_URL/r/kobalte/registry.json" --output /dev/null

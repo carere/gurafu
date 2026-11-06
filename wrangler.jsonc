@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gurafu",
+  "main": "@tanstack/solid-start/server-entry",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": true,
+  "routes": [
+    {
+      "pattern": "gurafu.carere.dev",
+      "custom_domain": true
+    }
+  ]
+}

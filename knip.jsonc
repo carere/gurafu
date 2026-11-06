@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip/schema.json",
+  "project": ["src/**/*.{ts,tsx,css}", "*.ts"],
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    // Executed by Moon tasks defined in .moon/tasks and moon.yml.
+    "@biomejs/biome",
+    "shadcn",
+    // Reserved for the chart implementation, whose API is designed separately.
+    "lightweight-charts"
+  ]
+}

@@ -1,0 +1,15 @@
+$schema: ./cache/schemas/toolchains.json
+
+javascript:
+  packageManager: bun
+  inferTasksFromScripts: false
+
+proto:
+  version: "0.63.2"
+
+# Runtime versions are inherited from .prototools.
+bun: {}
+node: {}
+
+typescript:
+  routeOutDirToCache: true

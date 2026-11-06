@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Gurafu — Cobalt</title>
+  <rect width="64" height="64" rx="15" fill="#e7edff"/>
+  <g fill="#315fde" stroke="#315fde" stroke-linecap="round">
+    <path d="M16 28v24m16-34v28" stroke-width="3.5"/>
+    <rect x="11" y="34" width="10" height="12" rx="2.5" stroke="none"/>
+    <rect x="27" y="24" width="10" height="14" rx="2.5" stroke="none"/>
+  </g>
+  <path d="M48 10v26" stroke="#b05c18" stroke-width="3.5" stroke-linecap="round"/>
+  <rect x="43" y="16" width="10" height="12" rx="2.5" fill="#b05c18"/>
+</svg>
