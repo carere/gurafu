@@ -64,6 +64,10 @@ Previews. Cloudflare reports build and deployment status on GitHub PRs.
 GitHub Actions runs formatting, type, dependency, registry, and build checks;
 it does not deploy and needs no Cloudflare credentials.
 
+Manage the repository connection and build settings under Cloudflare's
+Workers & Pages → `gurafu` → Settings → Builds. The Cloudflare Workers and Pages
+GitHub App must include `carere/gurafu` in its repository access.
+
 The Cloudflare build settings are:
 
 | Setting         | Production                                  | Branch previews                    |
