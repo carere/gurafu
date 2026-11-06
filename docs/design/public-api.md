@@ -2,7 +2,13 @@
 
 Accepted interface examples from [Choose Gurafu’s public API through concrete usage sketches](https://github.com/carere/gurafu/issues/10#issuecomment-6697354760). That resolved ticket is the canonical decision record; these notes preserve the approved usage and type relationships for implementation and later wayfinding.
 
-The exports below are planned, not shipped components. Code blocks illustrate the design rather than executable examples or typechecked declarations. Feature, state and lifecycle decisions remain authoritative in the [wayfinding map](https://github.com/carere/gurafu/issues/3).
+The full API below is the accepted target, not a list of currently shipped exports.
+The initial `chart` item implements Root, explicit Pane, snapshot CandlestickSeries,
+scoped accessors and lifecycle-aware controller types; see the [README](../../README.md)
+for installation and supported behavior. Other examples illustrate later slices of
+[spec #17](https://github.com/carere/gurafu/issues/17), which resolves numerical,
+website and acceptance decisions. Its SPA-first amendment supersedes the dedicated
+SSR/hydration requirements preserved in these earlier design notes.
 
 ## Composition
 

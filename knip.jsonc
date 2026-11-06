@@ -1,11 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip/schema.json",
+  "entry": ["src/registry/kobalte/chart/chart.tsx"],
   "project": ["src/**/*.{ts,tsx,css}", "*.ts"],
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
     // Executed by shared Moon tasks under .moon/tasks.
-    "@biomejs/biome",
-    // Reserved for the chart implementation, whose API is designed separately.
-    "lightweight-charts"
+    "@biomejs/biome"
   ]
 }

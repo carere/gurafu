@@ -10,9 +10,12 @@
   },
   "type": "module",
   "scripts": {
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "test:chart": "bun --bun shadcn build src/registry/kobalte/registry.json --output public/r/kobalte && bun scripts/prepare-chart-spa.ts && playwright test",
+    "test:solux": "node --conditions=browser tests/solux-gate.mjs"
   },
   "dependencies": {
+    "@carere/solux": "4.1.0",
     "@kobalte/core": "^0.13.14",
     "@tanstack/solid-router": "1.170.43",
     "@tanstack/solid-start": "1.169.4",
@@ -26,6 +29,7 @@
     "@biomejs/biome": "2.6.5",
     "@cloudflare/vite-plugin": "1.67.0",
     "@moonrepo/cli": "2.6.5",
+    "@playwright/test": "1.65.0",
     "@tailwindcss/vite": "4.3.4",
     "@types/bun": "1.4.4",
     "@types/node": "24.19.2",

@@ -26,7 +26,7 @@ pinned in `.prototools`. `bun install` installs the Lefthook Git hooks.
 
 ## Commands
 
-Moon owns the project tasks; `package.json` only contains the installation hook.
+Moon owns the project tasks; focused acceptance scripts also run directly through Bun.
 
 | Command                              | Purpose                                              |
 | ------------------------------------ | ---------------------------------------------------- |
@@ -114,12 +114,61 @@ validates it before generating static JSON in `public/r/kobalte`, which is
 served at `/r/kobalte/registry.json`. Generated registry files are ignored by Git
 and rebuilt before development and production builds.
 
-The catalog starts empty; there is no installable chart yet. The accepted
-[public API design](docs/design/public-api.md) describes the planned components,
-data inputs, native panes, optional features, and consumer coordination.
-Remaining indicator semantics and implementation acceptance criteria live in the
-[wayfinding map](https://github.com/carere/gurafu/issues/3). Lightweight Charts is
-pinned to v5 and reserved for that implementation.
+The `chart` item currently installs `Root`, `Pane`, snapshot `CandlestickSeries`,
+scoped `useChart` / `usePane` / `useSeries` accessors and their controller/prop types.
+It pins Lightweight Charts **5.2.1**, published **@carere/solux 4.1.0**, and Solid
+**1.9.18**. Core has no Zaidan, Kobalte, TanStack or Effect dependency.
+
+Build locally, then install the generated item in a Solid SPA configured with
+shadcn aliases:
+
+```sh
+bun --bun shadcn add /absolute/path/to/gurafu/public/r/kobalte/chart.json
+```
+
+With a `~/*` source alias, the installed composition is:
+
+```tsx
+import * as Chart from "~/components/gurafu/chart";
+
+<Chart.Root style={{ height: "320px" }} options={{ autoSize: true }}>
+  <Chart.Pane id="price">
+    <Chart.CandlestickSeries id="candles" data={displayedCandles()} />
+  </Chart.Pane>
+</Chart.Root>;
+```
+
+Supply an ascending, unique readonly snapshot (including `[]` for empty data).
+Native partial-option patches preserve omitted settings. Core copies row/time
+objects before normalization; arbitrary metadata is not deep-cloned. Controllers
+expose native `.api`, `ready()` and series `hasData()`. Hooks capture accessors
+before mounting; check readiness before accessing the native handle. API refs
+clear on removal and callback replacement. Raw native writes bypass managed data
+and layout reconciliation. Model readiness does not promise usable coordinates
+for hidden or zero-size containers. Consumers own dimensions and data recovery.
+
+The homepage's [Basics example](src/components/examples/basics.tsx) demonstrates
+snapshot replacement and empty display. The rest of the
+[accepted API](docs/design/public-api.md)—other series, pane movement/reorder,
+incremental data, dataset context/navigation, extensions and optional UI—is
+planned in [spec #17](https://github.com/carere/gurafu/issues/17).
+
+### Acceptance checks
+
+```sh
+bunx playwright install chromium
+moon run gurafu:test-solux gurafu:test-chart
+```
+
+`test-solux` probes the published package's opt-in DevTools protocol, detached
+nested RESET snapshots and repeated disposal. Its extension fake does not certify
+the actual Redux extension UI. `test-chart` generates registry JSON, uses the
+actual shadcn installer in an OS temporary directory outside the repository,
+installs declared published dependencies, compiles positive/negative public types
+with `skipLibCheck: false`, builds a non-TanStack Solid SPA, reports the single
+Solid runtime and runs Chromium browser checks against that installed source.
+No local Solux build or application-wide provider is required. Dedicated component
+SSR/hydration and later spec features are outside this initial slice.
 
 ## Source layout
 

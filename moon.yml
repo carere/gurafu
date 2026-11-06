@@ -65,3 +65,13 @@ tasks:
     outputs:
       - "public/r/kobalte/"
     type: build
+
+  test-chart:
+    command: bun run test:chart
+    options:
+      cache: false
+
+  test-solux:
+    command: bun run test:solux
+    options:
+      cache: false

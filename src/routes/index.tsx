@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/solid-router";
+import { Basics } from "@/components/examples/basics";
+import basicsSource from "@/components/examples/basics.tsx?raw";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -17,7 +19,15 @@ function Home() {
       <p class="max-w-xl text-lg text-muted-foreground">
         Composable trading charts for SolidJS, built on Zaidan and TradingView Lightweight Charts.
       </p>
-      <p class="text-muted-foreground">The component registry is taking shape. More soon.</p>
+      <Basics />
+      <details class="text-sm">
+        <summary class="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2">
+          Read the Basics source
+        </summary>
+        <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <code>{basicsSource}</code>
+        </pre>
+      </details>
       <div class="flex flex-wrap gap-3">
         <Button as="a" href="https://github.com/carere/gurafu">
           View on GitHub
