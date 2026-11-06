@@ -81,8 +81,14 @@ const changes = [
 const charts: (Chart.ChartController | undefined)[] = [];
 const series: (Chart.CandlestickSnapshotController | undefined)[] = [];
 const oldSeries: Chart.CandlestickSnapshotController[] = [];
+const rootReadyBeforeData: boolean[] = [];
 const chartRefs = [0, 1].map((i) => (value: Chart.ChartController | undefined) => {
   charts[i] = value;
+  if (value) {
+    rootReadyBeforeData[i] =
+      value.ready() &&
+      !value.api.panes().some((pane) => pane.getSeries().some((s) => s.data().length));
+  }
 });
 const alternateSeriesRef = (value: Chart.CandlestickSnapshotController | undefined) => {
   series[0] = value;
@@ -98,6 +104,7 @@ Object.assign(window, {
     charts,
     series,
     oldSeries,
+    rootReadyBeforeData,
     events,
     callbackEvents,
     outer,

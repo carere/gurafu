@@ -70,6 +70,7 @@ export type CandlestickSeriesProps = {
 
 type ChartScope = {
   controller: Accessor<ChartController | undefined>;
+  api: Accessor<IChartApi | undefined>;
   own: (dispose: () => void) => () => void;
   withoutEvents: (dispose: () => void) => void;
 };
@@ -138,11 +139,13 @@ export function Root(props: RootProps) {
   ]);
   let surface!: HTMLDivElement;
   const [controller, setController] = createSignal<ChartController>();
+  const [nativeApi, setNativeApi] = createSignal<IChartApi>();
   const clearRef = bindRef(() => local.apiRef, controller);
   const owned = new Set<() => void>();
   let silencing = 0;
   const scope: ChartScope = {
     controller,
+    api: nativeApi,
     withoutEvents(dispose) {
       silencing++;
       try {
@@ -199,7 +202,12 @@ export function Root(props: RootProps) {
     scale.subscribeVisibleTimeRangeChange(timeRange);
     scale.subscribeVisibleLogicalRangeChange(logicalRange);
     scale.subscribeSizeChange(size);
-    setController(resource(api, ready));
+    setNativeApi(api);
+    // Assembly uses the private native handle. Expose public readiness only
+    // after Solid has reconciled the declared panes and their initial snapshots.
+    queueMicrotask(() => {
+      if (active) setController(resource(api, ready));
+    });
     onCleanup(() => {
       active = false;
       setReady(false);
@@ -213,13 +221,14 @@ export function Root(props: RootProps) {
       store.dispose();
       for (const dispose of [...owned].reverse()) dispose();
       setController(undefined);
+      setNativeApi(undefined);
       api.remove();
     });
   });
   createEffect(() => {
-    const chart = controller();
+    const chart = nativeApi();
     const options = local.options;
-    if (chart && options) chart.api.applyOptions(options);
+    if (chart && options) chart.applyOptions(options);
   });
   return (
     <ChartContext.Provider value={scope}>
@@ -256,10 +265,9 @@ export function Pane(props: PaneProps) {
   };
   const clearRef = bindRef(() => props.apiRef, controller);
   createEffect(() => {
-    const chart = scope.controller();
+    const chartApi = scope.api();
     const id = props.id;
-    if (!chart) return;
-    const chartApi = chart.api;
+    if (!chartApi) return;
     // v5 starts with an empty native pane; the first declaration claims it.
     const api =
       chartApi.panes().find((pane) => pane.getSeries().length === 0 && !pane.preserveEmptyPane()) ??
@@ -294,11 +302,10 @@ export function CandlestickSeries(props: CandlestickSeriesProps) {
   const [controller, setController] = createSignal<CandlestickSnapshotController>();
   const clearRef = bindRef(() => props.apiRef, controller);
   createEffect(() => {
-    const chart = scope.controller();
+    const chartApi = scope.api();
     const target = pane();
     const id = props.id;
-    if (!chart || !target) return;
-    const chartApi = chart.api;
+    if (!chartApi || !target) return;
     const api = chartApi.addSeries(
       NativeCandlestickSeries,
       untrack(() => props.options),

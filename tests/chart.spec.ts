@@ -11,6 +11,7 @@ interface Smoke {
   charts: ChartController[];
   series: CandlestickSnapshotController[];
   oldSeries: CandlestickSnapshotController[];
+  rootReadyBeforeData: boolean[];
   outer: HTMLDivElement[];
   inner: HTMLDivElement[];
   refLog: string[];
@@ -69,12 +70,14 @@ test("installed core renders isolated snapshot charts and releases native resour
         data: s.series.map((c) => c.api.data()),
         distinct: s.charts[0].api !== s.charts[1].api,
         hasData: s.series.map((c) => c.hasData()),
+        rootReadyBeforeData: s.rootReadyBeforeData,
       };
     }),
   ).toMatchObject({
     ready: [true, true],
     distinct: true,
     hasData: [true, true],
+    rootReadyBeforeData: [false, false],
     data: [[{ close: 105 }], [{ close: 105 }]],
   });
 });

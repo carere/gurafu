@@ -1,17 +1,10 @@
-import { createHash } from "node:crypto";
-import { cp, mkdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
+import { chartSpaDirectory as consumer } from "./chart-spa-path";
 
-const consumer = resolve(
-  tmpdir(),
-  `gurafu-chart-spa-${createHash("sha256").update(process.cwd()).digest("hex").slice(0, 12)}`,
-);
 await rm(consumer, { recursive: true, force: true });
 await mkdir(consumer, { recursive: true });
 await cp("tests/chart-spa", consumer, { recursive: true });
-await mkdir(".moon/cache", { recursive: true });
-await writeFile(".moon/cache/chart-spa-path", consumer);
 async function run(cmd: string[], cwd: string) {
   const child = Bun.spawn(cmd, { cwd, stdout: "inherit", stderr: "inherit" });
   if (await child.exited) throw new Error(`${cmd.join(" ")} failed`);
