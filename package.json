@@ -25,6 +25,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.6.5",
     "@cloudflare/vite-plugin": "1.67.0",
+    "@moonrepo/cli": "2.6.5",
     "@tailwindcss/vite": "4.3.4",
     "@types/bun": "1.4.4",
     "@types/node": "24.19.2",

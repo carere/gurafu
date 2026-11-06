@@ -57,16 +57,26 @@ through a TanStack Start server route.
 `gurafu.carere.dev`. The Cloudflare Vite plugin builds the server and static
 assets into `dist/` and generates the deployment configuration.
 
-GitHub Actions validates and builds every push to `main` and every PR. A
-successful `main` build deploys production to `gurafu.carere.dev`. PRs from this
-repository publish a Cloudflare Worker Preview named `pr-<number>`, with a stable
-URL exposed through GitHub Deployments and the workflow summary. Fork PRs run
-the checks without deployment credentials. Each deployment is checked for a
-responding homepage, health endpoint, and registry catalog.
+Cloudflare Workers Builds connects directly to `carere/gurafu` through the
+Cloudflare GitHub App, as in Zaidan. Pushes to `main` deploy production to
+`gurafu.carere.dev`; pushes to other branches create or update Cloudflare Worker
+Previews. Cloudflare reports build and deployment status on GitHub PRs.
+GitHub Actions runs formatting, type, dependency, registry, and build checks;
+it does not deploy and needs no Cloudflare credentials.
 
-The workflow uses the repository secret `CLOUDFLARE_API_TOKEN` and repository
-variable `CLOUDFLARE_ACCOUNT_ID`. The token must permit Worker deployments and
-custom-domain management for the `carere.dev` zone.
+The Cloudflare build settings are:
+
+| Setting         | Production                                  | Branch previews                    |
+| --------------- | ------------------------------------------- | ---------------------------------- |
+| Branch          | `main`                                      | All other branches                 |
+| Root directory  | `/`                                         | `/`                                |
+| Build command   | `bash scripts/build-cloudflare.sh`          | `bash scripts/build-cloudflare.sh` |
+| Deploy command  | `bunx wrangler deploy`                      | `bunx wrangler preview`            |
+| Build variables | `BUN_VERSION=1.4.4`, `NODE_VERSION=24.22.1` | Same as production                 |
+
+The build helper makes Moon's base branch available in preview checkouts. Moon
+is installed as a pinned project dependency so the Cloudflare build image can
+run it. Deployment authentication is managed by Cloudflare's build token.
 
 For a manual production deployment, authenticate Wrangler and run
 `moon run gurafu:deploy`. For a manual preview, run

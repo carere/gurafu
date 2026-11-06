@@ -3,9 +3,8 @@
   "project": ["src/**/*.{ts,tsx,css}", "*.ts"],
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
-    // Executed by Moon tasks defined in .moon/tasks and moon.yml.
+    // Executed by shared Moon tasks under .moon/tasks.
     "@biomejs/biome",
-    "shadcn",
     // Reserved for the chart implementation, whose API is designed separately.
     "lightweight-charts"
   ]

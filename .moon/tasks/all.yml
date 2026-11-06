@@ -10,6 +10,7 @@ fileGroups:
     - "components.json"
     - "wrangler.jsonc"
     - "*.config.ts"
+    - "scripts/**/*.sh"
   sources:
     - "src/**/*"
   workspace:
