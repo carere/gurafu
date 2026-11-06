@@ -114,10 +114,12 @@ validates it before generating static JSON in `public/r/kobalte`, which is
 served at `/r/kobalte/registry.json`. Generated registry files are ignored by Git
 and rebuilt before development and production builds.
 
-The catalog starts empty. There is no installable chart yet: the reusable
-component API and the migration of Ashiso's indicators and multiple-timeframe
-charts will be designed separately. Lightweight Charts is pinned to v5 and
-reserved for that implementation.
+The catalog starts empty; there is no installable chart yet. The accepted
+[public API design](docs/design/public-api.md) describes the planned components,
+data inputs, native panes, optional features, and consumer coordination.
+Remaining indicator semantics and implementation acceptance criteria live in the
+[wayfinding map](https://github.com/carere/gurafu/issues/3). Lightweight Charts is
+pinned to v5 and reserved for that implementation.
 
 ## Source layout
 
