@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Gurafu</title>
+  <style>
+    :root { --tile: #e7f4ec; --up: #197254; --down: #b94c3c; }
+    @media (prefers-color-scheme: dark) {
+      :root { --tile: #172e2b; --up: #79ddae; --down: #ff9984; }
+    }
+  </style>
+  <rect width="64" height="64" rx="15" fill="var(--tile)"/>
+  <g fill="var(--up)" stroke="var(--up)" stroke-linecap="round">
+    <path d="M16 26v24m16-36v28" stroke-width="3.5"/>
+    <rect x="11" y="32" width="10" height="12" rx="2.5" stroke="none"/>
+    <rect x="27" y="20" width="10" height="14" rx="2.5" stroke="none"/>
+  </g>
+  <path d="M48 20v6m0 12v8" stroke="var(--down)" stroke-width="3.5" stroke-linecap="round"/>
+  <rect x="44.5" y="27.5" width="7" height="9" rx="1.5" stroke="var(--down)" stroke-width="3"/>
+</svg>

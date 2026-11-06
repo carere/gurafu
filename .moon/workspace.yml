@@ -1,0 +1,10 @@
+$schema: ./cache/schemas/workspace.json
+
+projects:
+  gurafu: "."
+
+defaultProject: gurafu
+
+vcs:
+  defaultBranch: main
+  provider: github

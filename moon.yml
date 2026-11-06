@@ -1,0 +1,67 @@
+$schema: ./.moon/cache/schemas/project.json
+
+stack: frontend
+layer: application
+
+tasks:
+  dev:
+    command: bun vite dev
+    env:
+      CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: "false"
+    deps:
+      - "~:r-build-kobalte"
+    preset: server
+    inputs: []
+
+  build:
+    command: bun vite build
+    env:
+      CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: "false"
+    deps:
+      - "~:r-build-kobalte"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+      - "public/**/*"
+    outputs:
+      - "dist/"
+      - ".wrangler/deploy/"
+    type: build
+
+  preview:
+    command: bun vite preview
+    env:
+      CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: "false"
+    preset: server
+    inputs: []
+
+  deploy:
+    command: bun wrangler deploy
+    deps:
+      - "~:build"
+    options:
+      cache: false
+      runInCI: false
+
+  deploy-preview:
+    command: bun wrangler preview
+    deps:
+      - "~:build"
+    options:
+      cache: false
+      runInCI: false
+
+  r-validate-kobalte:
+    command: bun --bun shadcn registry validate src/registry/kobalte/registry.json
+    inputs:
+      - "src/registry/kobalte/**/*"
+
+  r-build-kobalte:
+    command: bun --bun shadcn build src/registry/kobalte/registry.json --output public/r/kobalte
+    deps:
+      - "~:r-validate-kobalte"
+    inputs:
+      - "src/registry/kobalte/**/*"
+    outputs:
+      - "public/r/kobalte/"
+    type: build

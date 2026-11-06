@@ -1,0 +1,50 @@
+$schema: ../cache/schemas/tasks.json
+
+fileGroups:
+  configs:
+    - "moon.yml"
+    - "package.json"
+    - "tsconfig.json"
+    - "biome.json"
+    - "knip.jsonc"
+    - "components.json"
+    - "wrangler.jsonc"
+    - "*.config.ts"
+    - "scripts/**/*.sh"
+  sources:
+    - "src/**/*"
+  workspace:
+    - "/.moon/tasks/**/*"
+    - "/.moon/toolchains.yml"
+    - "/.moon/workspace.yml"
+    - "/.prototools"
+    - "/bun.lock"
+    - "/package.json"
+
+implicitInputs:
+  - "@group(configs)"
+  - "@group(workspace)"
+
+tasks:
+  check:
+    command: bun --bun biome check .
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+
+  fix:
+    command: bun --bun biome check --write .
+    options:
+      cache: false
+
+  tsc:
+    command: bun --bun tsc --noEmit
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+
+  knip:
+    command: bun --bun knip
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
