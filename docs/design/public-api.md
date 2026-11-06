@@ -16,7 +16,7 @@ import * as Chart from "~/components/gurafu/chart";
   <Chart.Pane id="volume" stretchFactor={0.25}>
     <Chart.HistogramSeries id="volume" data={volume()} />
   </Chart.Pane>
-</Chart.Root>
+</Chart.Root>;
 ```
 
 Solid owns conditional mounting and reactive inputs. Pane and series `id` values are stable chart-local identities, independent of numeric positions. Typed standard-series components infer native data/options without a string discriminator. An explicit pane costs one nesting level but makes native-pane ownership visible.
@@ -28,7 +28,7 @@ A one-pane chart still declares its pane explicitly. Root-level series require a
 ### Snapshot
 
 ```tsx
-<Chart.CandlestickSeries id="candles" data={displayedCandles()} />
+<Chart.CandlestickSeries id="candles" data={displayedCandles()} />;
 ```
 
 `data` is a reactive full snapshot. Replacing it replaces the displayed dataset. There is no second imperative data writer for this series. Changing a row in place without notifying Solid is not an input channel.
@@ -36,8 +36,7 @@ A one-pane chart still declares its pane explicitly. Root-level series require a
 ### Initial replacement followed by live updates
 
 ```tsx
-const [candlesController, setCandlesController] =
-  createSignal<CandlestickIncrementalController>();
+const [candlesController, setCandlesController] = createSignal<CandlestickIncrementalController>();
 
 createEffect(() => {
   const series = candlesController();
@@ -46,11 +45,7 @@ createEffect(() => {
   onCleanup(unsubscribe);
 });
 
-<Chart.CandlestickSeries
-  id="candles"
-  defaultData={history}
-  apiRef={setCandlesController}
-/>
+<Chart.CandlestickSeries id="candles" defaultData={history} apiRef={setCandlesController} />;
 ```
 
 `defaultData` seeds an incremental series once per dataset context. Its controller exposes `setData`, `update` and `pop` with native meanings. History loading/replay seek calls `setData` on that same controller; live updates can then continue. Do not key/remount the series just to replace history. `data` and `defaultData` are mutually exclusive. Disposal clears the observed controller so the consumer-owned effect unsubscribes. This is usage notation, not executable implementation code.
@@ -89,7 +84,7 @@ Keep `Chart.Pane` explicit, even for a single price pane. Require stable chart-l
   <Chart.Pane id="price" />
   <Chart.Pane id="analysis" />
   <Chart.LineSeries id="signal" pane={targetPane()} data={values()} />
-</Chart.Root>
+</Chart.Root>;
 ```
 
 For dynamic movement, keep the series component mounted and change `pane`. Moving JSX between conditional branches can unmount/remount it and therefore create a new resource; an id does not revive an unmounted resource. Reorder mounted declarations with Solid's keyed `For` and stable item references. Changes to an `id` replace that logical declaration. All target panes belong to this chart instance. Normal chart-side commands do not expose a second declarative-layout writer.
@@ -104,13 +99,9 @@ const [candles, setCandles] = createSignal<CandlestickIncrementalController>();
 
 <Chart.Root ref={setContainer} apiRef={setChart} class="h-96">
   <Chart.Pane id="price">
-    <Chart.CandlestickSeries
-      id="candles"
-      defaultData={history}
-      apiRef={setCandles}
-    />
+    <Chart.CandlestickSeries id="candles" defaultData={history} apiRef={setCandles} />
   </Chart.Pane>
-</Chart.Root>
+</Chart.Root>;
 ```
 
 `ref` on Root is the ordinary Solid container DOM ref. `apiRef` is a callback receiving a live Gurafu controller and `undefined` on removal; controllers expose `.api` for the underlying native handle. On callback replacement, clear the old callback and supply the current controller to the new callback. Keep pointer/event callback replacement equally reactive without accumulating native subscriptions.
@@ -128,7 +119,7 @@ Native resources are created only after browser mounting. Ref availability does 
   <Chart.Pane id="price">
     <Chart.CandlestickSeries id="candles" data={dataset().candles} />
   </Chart.Pane>
-</Chart.Root>
+</Chart.Root>;
 ```
 
 Use an optional reactive `datasetKey: string | number` on Root, constant by default. A new key starts a new dataset generation without remounting compatible native resources. Invalidate Gurafu-owned pending work/selection for the old context, clear old managed data, supply the current snapshot and reset navigation by default. Matching inputs should be supplied together from consumer-owned state; stale response rejection remains external. The key is not a feed manager or a command token.
@@ -151,13 +142,9 @@ Chart reuse is a performance-oriented design choice, not a measured fastest-appr
   onVisibleLogicalRangeChange={maybeLoadHistory}
 >
   <Chart.Pane id="price">
-    <Chart.CandlestickSeries
-      id="candles"
-      data={dataset().candles}
-      options={candleOptions()}
-    />
+    <Chart.CandlestickSeries id="candles" data={dataset().candles} options={candleOptions()} />
   </Chart.Pane>
-</Chart.Root>
+</Chart.Root>;
 ```
 
 `options` keeps upstream partial-option types and `applyOptions` patch semantics. A reactive change applies a patch; omitted properties are not a request to restore defaults. Use upstream `DeepPartial<ChartOptions>` for chart options and `SeriesPartialOptionsMap[T]`/`SeriesDataItemTypeMap<Time>[T]` relationships for standard series. Supply explicit values to reset a previously applied property. Live appearance/theme updates preserve native resources. Creation-only properties cannot pretend to be reactive patch options.
@@ -172,18 +159,14 @@ import * as Indicators from "~/components/gurafu/indicators";
 <Chart.Root datasetKey={dataset().key}>
   <Chart.Pane id="price">
     <Chart.CandlestickSeries id="candles" data={dataset().candles} />
-    <Indicators.BollingerBands
-      id="bb"
-      source="candles"
-      parameters={bbParameters()}
-    />
+    <Indicators.BollingerBands id="bb" source="candles" parameters={bbParameters()} />
     <Indicators.SMA id="sma" source="candles" parameters={smaParameters()} />
     <Indicators.EMA id="ema" source="candles" parameters={emaParameters()} />
   </Chart.Pane>
   <Chart.Pane id="rsi">
     <Indicators.RSI id="rsi" source="candles" parameters={rsiParameters()} />
   </Chart.Pane>
-</Chart.Root>
+</Chart.Root>;
 ```
 
 `source` identifies a chart-local price series, while nesting or `pane` selects the output pane. Calculated indicators consume only their source's supplied displayed data, including incremental replacements/updates and replay cutoff. Their parameters are typed per indicator; defaults/formulas/price-input rules belong to the still-open numerical-compatibility decision.
@@ -191,7 +174,7 @@ import * as Indicators from "~/components/gurafu/indicators";
 The same visual declaration accepts mutually exclusive precomputed `data` instead of `source`, following exact-time/missing-value rules:
 
 ```tsx
-<Indicators.BollingerBands id="bb" data={suppliedBands()} />
+<Indicators.BollingerBands id="bb" data={suppliedBands()} />;
 ```
 
 No competing calculation runs in supplied-data mode. Snapshot precomputed indicator data is sufficient for the first interface; consumers wanting native incremental drawing can instead compose standard series/primitives. The numerical-compatibility decision will specify the exported result-row types before implementation; examples here do not invent formulas or defaults.
@@ -287,16 +270,12 @@ function returnToLive() {
 <Chart.Root datasetKey={dataset().key}>
   <Chart.Pane id="price">
     <Chart.CandlestickSeries id="candles" data={display().candles} />
-    <Indicators.BollingerBands
-      id="bb"
-      source="candles"
-      parameters={bbParameters()}
-    />
+    <Indicators.BollingerBands id="bb" source="candles" parameters={bbParameters()} />
   </Chart.Pane>
   <Chart.Pane id="volume">
     <Chart.HistogramSeries id="volume" data={display().volume} />
   </Chart.Pane>
-</Chart.Root>
+</Chart.Root>;
 ```
 
 The illustrative `application*` functions belong to the consumer, not Gurafu. Preparing one display snapshot keeps related supplied inputs coherent without promising a native multi-series transaction. Precomputed indicator `data` can be part of that same snapshot instead of a calculated `source` declaration. The application owns replay controls, timing and late-response guards; incremental consumers use `setData` for rewind/live restoration and can resume `update` afterwards.
@@ -374,8 +353,7 @@ interface SnapshotSeriesController<A> extends ResourceController<A> {
   readonly hasData: Accessor<boolean>;
 }
 
-interface IncrementalSeriesController<A, D>
-  extends SnapshotSeriesController<A> {
+interface IncrementalSeriesController<A, D> extends SnapshotSeriesController<A> {
   setData(data: readonly D[]): void;
   update(item: D, historicalUpdate?: boolean): void;
   pop(count: number): D[];
@@ -462,11 +440,7 @@ function TimeframeChart(props: {
       }}
     >
       <Chart.Pane id="price">
-        <Chart.CandlestickSeries
-          id="candles"
-          data={props.dataset.candles}
-          apiRef={setCandles}
-        />
+        <Chart.CandlestickSeries id="candles" data={props.dataset.candles} apiRef={setCandles} />
       </Chart.Pane>
     </Chart.Root>
   );
@@ -501,7 +475,7 @@ Per-chart debugging uses `devtools={false | { name: string }}`, disabled by defa
   containerProps={{ class: "h-full w-full" }}
 >
   {/* Explicit panes, series, optional indicator declarations and legend. */}
-</Chart.Root>
+</Chart.Root>;
 ```
 
 Use the same complete chart and series appearance option types that TradingView provides. Add no theme schema, restricted color interface, theme manager or theme-state prop. `lightChartOptions`/`darkChartOptions`, if supplied, are optional plain native-option objects for convenience. Consumer theme choice/system detection/persistence stays external. Presets provide explicit values for appearance fields they own, so switching themes does not depend on omitted partial options restoring defaults. Indicator visual `options`, legend labels/formatting/render callbacks, widget labels/classes and Zaidan tokens remain configurable. Numerical/visual indicator defaults belong to the numerical-compatibility ticket.
