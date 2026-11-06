@@ -32,6 +32,10 @@ _Avoid_: Axis labels, tooltip
 Progressively revealing historical data according to a selected position in time.
 _Avoid_: Trading session, live feed
 
+**Dataset context**:
+The identity of the market data a chart displays, such as its symbol and timeframe. Replacing or extending history within that identity does not create a new dataset context.
+_Avoid_: Chart instance, history page
+
 **Consumer coordination**:
 Application-managed communication between separate chart instances, such as sharing crosshair time or navigation intent.
 _Avoid_: Native panes, built-in synchronization
