@@ -283,11 +283,11 @@ test("readable example starts with authoritative parameters and consumer selecti
 }) => {
   await page.goto("/?indicators-example22");
   await expect(page.getByRole("button", { name: "Indicators (4)" })).toBeVisible();
-  await expect(page.getByLabel("Bands period", { exact: true })).toHaveValue("18");
-  await expect(page.getByLabel("SMA period", { exact: true })).toHaveValue("20");
-  await expect(page.getByLabel("EMA period", { exact: true })).toHaveValue("20");
-  await expect(page.getByLabel("RSI period", { exact: true })).toHaveValue("14");
-  await expect(page.getByLabel("Price input", { exact: true })).toHaveValue("close");
+  await expect(page.getByRole("combobox", { name: "Bands period" })).toHaveValue("18");
+  await expect(page.getByRole("combobox", { name: "SMA period" })).toHaveValue("20");
+  await expect(page.getByRole("combobox", { name: "EMA period" })).toHaveValue("20");
+  await expect(page.getByRole("combobox", { name: "RSI period" })).toHaveValue("14");
+  await expect(page.getByRole("combobox", { name: "Price input" })).toHaveValue("close");
   await page
     .getByRole("group", { name: "Mounted indicators" })
     .getByRole("button", { name: "Price EMA" })
