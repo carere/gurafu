@@ -222,6 +222,7 @@ declare global {
       reject(index: number): void;
       live(index: number, close: number): void;
       streams(): { closed: boolean }[];
+      reconnect(index: number): void;
       state(): unknown;
       sibling(): void;
       liveSibling(): void;
@@ -245,6 +246,35 @@ test("a canceled clock callback cannot advance a paused or restarted replay", as
   await expect(replay.getByRole("status")).toContainText("1 revealed candles");
   await page.evaluate(() => window.replay25.tick());
   await expect(replay.getByRole("status")).toContainText("2 revealed candles");
+});
+
+test("a reconnect replacing live recovery still restores the full current snapshot", async ({
+  page,
+}) => {
+  await boot(page);
+  const replay = region(page);
+  await replay.getByRole("button", { name: "Start replay" }).click();
+  await replay.getByRole("button", { name: "Exit replay" }).click();
+  await expect.poll(() => page.evaluate(() => window.replay25.requests().length)).toBe(2);
+  await page.evaluate(() => window.replay25.reconnect(1));
+  await expect.poll(() => page.evaluate(() => window.replay25.requests().length)).toBe(3);
+  await expect.poll(() => page.evaluate(() => window.replay25.requests()[1].aborted)).toBe(true);
+  await expect(replay.getByRole("status")).toContainText(
+    "restoring · 1 revealed candles · latest close 104 · Loading history",
+  );
+  await expect(replay.getByRole("alert")).toHaveCount(0);
+  await page.evaluate(() => {
+    window.replay25.live(1, 777);
+    window.replay25.resolve(1, [2, 3], 999);
+    window.replay25.resolve(2, [2, 3]);
+  });
+  await expect(replay.getByRole("status")).toContainText(
+    "live · 4 revealed candles · latest close 777",
+  );
+  await expect(replay.getByRole("alert")).toHaveCount(0);
+  await expect
+    .poll(() => state(page))
+    .toMatchObject({ legend: { ohlc: { close: 777 }, volume: { value: 77 } } });
 });
 
 test("historical replay excludes incomplete bars and removal aborts a pending seek while sibling live input survives", async ({

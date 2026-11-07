@@ -1,4 +1,4 @@
-import { createQuery, queryOptions } from "@tanstack/solid-query";
+import { createQuery, type QueryObserverResult, queryOptions } from "@tanstack/solid-query";
 import { Effect, Either } from "effect";
 import {
   type Accessor,
@@ -39,6 +39,9 @@ export function createMarketDataset(
       key: ["market", owner, selected.symbol, selected.interval],
       handoff: undefined as { changes: Map<number, Candle>; overflow: boolean } | undefined,
       repair: false,
+      pendingRepair: undefined as
+        | Promise<QueryObserverResult<readonly Candle[], Error> | undefined>
+        | undefined,
       range: {} as Pick<Page, "from" | "to">,
     };
   });
@@ -105,11 +108,17 @@ export function createMarketDataset(
     current.handoff = { changes: new Map<number, Candle>(), overflow: false };
     // Explicit cancellation also replaces an initial, still-empty Query fetch.
     // Do not revert live cache writes made while that request was in flight.
-    return app.queryClient
+    const pending: NonNullable<typeof current.pendingRepair> = app.queryClient
       .cancelQueries({ queryKey: current.key, exact: true }, { revert: false })
       .then(() => {
-        if (alive && session() === current) return query.refetch();
-      });
+        if (alive && session() === current && enabled() && current.pendingRepair === pending)
+          return query.refetch();
+      })
+      // Reconnect may replace this repair while a consumer awaits live recovery.
+      // Only the latest repair can complete that restoration, never its cancellation.
+      .then((result) => (current.pendingRepair === pending ? result : current.pendingRepair));
+    current.pendingRepair = pending;
+    return pending;
   }
   createEffect(() => {
     const current = session();

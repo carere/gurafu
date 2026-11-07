@@ -75,6 +75,11 @@ export function Replay25() {
       fixture.streams
         .filter((s) => s.market.symbol === "BTCUSDT")
         .map((s) => ({ closed: s.closed })),
+    reconnect(index: number) {
+      fixture.streams
+        .filter((s) => s.market.symbol === "BTCUSDT")
+        [index].emit({ type: "connection", state: "connected", reconnected: true });
+    },
     state: () => ({
       ready: chart?.()?.ready() ?? false,
       legend: legend?.(),
