@@ -4,7 +4,9 @@
     "src/registry/kobalte/chart/chart.tsx",
     "src/registry/kobalte/chart/indicators.tsx",
     "src/registry/kobalte/chart/chart-legend.tsx",
-    "src/registry/kobalte/chart/chart-indicator-controls.tsx"
+    "src/registry/kobalte/chart/chart-indicator-controls.tsx",
+    "src/registry/kobalte/chart/chart-replay-controls.tsx",
+    "src/registry/kobalte/chart/chart-date-controls.tsx"
   ],
   "project": ["src/**/*.{ts,tsx,css}", "*.ts"],
   "ignoreExportsUsedInFile": true,

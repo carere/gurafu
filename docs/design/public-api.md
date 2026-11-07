@@ -11,6 +11,9 @@ pure calculations and visibility requests; see the README for defaults and optio
 The optional `chart-legend` and `chart-indicator-controls` items provide exact-time
 readonly presentation and consumer-owned selection. Root also supports local
 crosshair commands and opt-in per-instance Solux Redux DevTools inspection.
+The separate `chart-replay-controls` and `chart-date-controls` items provide
+request-only standalone playback and UTC calendar controls. The website owns
+clock, cutoff, history loading and coherent live restoration.
 Other examples illustrate later slices of
 [spec #17](https://github.com/carere/gurafu/issues/17), which resolves numerical,
 website and acceptance decisions. Its SPA-first amendment supersedes the dedicated

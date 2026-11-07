@@ -9,6 +9,10 @@ import { IndicatorsPanes } from "@/components/examples/indicators-panes";
 import indicatorsSource from "@/components/examples/indicators-panes.tsx?raw";
 import { NativePanes } from "@/components/examples/native-panes";
 import panesSource from "@/components/examples/native-panes.tsx?raw";
+import { ReplayDateNavigation } from "@/components/examples/replay-date";
+import replaySource from "@/components/examples/replay-date.tsx?raw";
+import replayEvidenceSource from "@/components/examples/replay-evidence.ts?raw";
+import replaySessionSource from "@/components/examples/replay-session.ts?raw";
 import { ServiceHistory } from "@/components/examples/service-history";
 import serviceHistorySource from "@/components/examples/service-history.tsx?raw";
 import { Button } from "@/components/ui/button";
@@ -75,6 +79,21 @@ function Home() {
         </summary>
         <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
           <code>{serviceHistorySource}</code>
+        </pre>
+      </details>
+      <ClientOnly fallback={<p role="status">Replay loads in your browser.</p>}>
+        <ReplayDateNavigation app={app()} />
+      </ClientOnly>
+      <details class="text-sm">
+        <summary>Read the Replay and date navigation source</summary>
+        <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <code>
+            {replaySource}
+            {"\n"}
+            {replaySessionSource}
+            {"\n"}
+            {replayEvidenceSource}
+          </code>
         </pre>
       </details>
       <ExtensionsLifecycle />

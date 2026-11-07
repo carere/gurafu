@@ -67,3 +67,14 @@ core and all public type examples without website dependencies, then installs th
 pinned Effect/Query packages and compiles/mounts the actual website service source.
 Deterministic acceptance does not depend on Binance availability. Live origin,
 long-running reconnect and cross-region availability remain separate checks.
+
+Replay adds an optional third argument to `createMarketDataset`: `{ active }`, a
+Solid accessor defaulting to true. False disables automatic history fetching,
+cancels this dataset's in-flight history without reverting live writes and
+finalizes only its scoped stream. Recoverable rows remain in Query. `recoverLive()`
+uses the existing bounded tail repair/journal and returns its completion; the
+consumer supplies current live data only after that result succeeds. Neither
+operation disposes the app runtime or sibling datasets. Existing callers retain
+their original behavior. Replay seek requests use separate owner/generation Query
+keys and the same ExchangeFacade/Effect abort boundary, with application-owned
+cutoff and stale-result guards.
