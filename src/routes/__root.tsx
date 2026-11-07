@@ -1,9 +1,10 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/solid-router";
+import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanstack/solid-router";
 import { Suspense } from "solid-js";
 import { HydrationScript } from "solid-js/web";
+import type { MarketApp } from "@/services/market/app";
 import stylesheet from "@/styles.css?url";
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<MarketApp>()({
   head: () => ({
     meta: [
       { charset: "utf-8" },

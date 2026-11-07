@@ -115,7 +115,8 @@ served at `/r/kobalte/registry.json`. Generated registry files are ignored by Gi
 and rebuilt before development and production builds.
 
 The `chart` item installs `Root`, `Pane`, snapshot/incremental `CandlestickSeries`, `BarSeries`,
-`LineSeries`, `AreaSeries`, `BaselineSeries` and `HistogramSeries`, scoped
+`LineSeries`, `AreaSeries`, `BaselineSeries` and `HistogramSeries`, generic `CustomSeries`,
+owned `SeriesPrimitive` / `PanePrimitive` factories and retained `Markers`, scoped
 `useChart` / `usePane` / `useSeries` accessors, matching native controller/prop
 types, and plain `lightChartOptions` / `darkChartOptions` presets.
 It pins Lightweight Charts **5.2.1**, published **@carere/solux 4.1.0**, and Solid
@@ -180,8 +181,11 @@ snapshot/incremental charts, explicitly resolved fixture requests, out-of-order
 completion, failures/retry, context switching, updates, correction, pop and
 load-before-date navigation. The application retains recoverable history, merges
 pages with current live corrections and rejects obsolete results before writing.
-These fixtures do not claim live-network integration. Custom extensions and
-other optional UI remain in [spec #17](https://github.com/carere/gurafu/issues/17).
+These fixtures do not claim live-network integration. The additional
+[service-backed history](src/components/examples/service-history.tsx) uses browser-direct
+Binance Spot through the website-only [Effect/Query services](src/services/market/README.md),
+with deterministic injectable fixture Layers for acceptance. Custom extensions and
+optional UI remain in [spec #17](https://github.com/carere/gurafu/issues/17).
 
 ### Data authority and navigation
 
@@ -288,7 +292,7 @@ other content on that scale. Legends and selection widgets remain later tickets.
 ```sh
 bunx playwright install chromium
 bun run test:indicators
-moon run gurafu:test-solux gurafu:test-chart
+moon run gurafu:test-solux gurafu:test-market gurafu:test-chart
 ```
 
 `test-solux` probes the published package's opt-in DevTools protocol, detached
@@ -297,7 +301,8 @@ the actual Redux extension UI. `test-chart` generates registry JSON, uses the
 actual shadcn installer for separate core-only and optional-first consumers in OS
 temporary directories outside the repository,
 installs declared published dependencies, compiles positive/negative public types
-with `skipLibCheck: false`, builds a non-TanStack Solid SPA, reports the single
+with `skipLibCheck: false`, checks core without website dependencies before adding the website service test dependencies,
+builds a standalone Solid SPA, reports the single
 Solid runtime and runs Chromium browser checks against that installed source.
 No local Solux build or application-wide provider is required. Dedicated component
 SSR/hydration and later spec features are outside this slice.
@@ -318,5 +323,34 @@ src/
 Keep distributed registry code independent of application routes and server
 implementations. Consumers should be able to install the components into other
 Solid applications without adopting TanStack Start or using Gurafu's hosted
-services. Provider integrations and credentials will be added with the data
-integration work.
+services. The keyless Spot adapter is website-only and requires no credentials.
+
+### Owned extensions
+
+`CustomSeries` uses an owned `create` view factory and the same exclusive `data` /
+`defaultData` modes as standard series. Custom data, full options and partial-options
+types continue through its native handle. Time is the ordinary upstream `Time` union.
+Nest `SeriesPrimitive` and `Markers` inside their series, and `PanePrimitive` inside
+its native pane. Each factory runs once per owned native lifetime. Data/options
+patches, compatible moves and dataset changes retain those instances. Empty data
+retains them too; removal/reintroduction creates new instances.
+For custom fields without native value/OHLC semantics, use native explicit-price
+markers such as `position: "atPriceMiddle", price: 40`; the example demonstrates this.
+
+Each extension supports `apiRef` with a managed `ready()` / `.api` controller;
+custom-series refs also expose the matching data-mode controller. Replacing a ref
+clears the old callback before supplying the retained controller to the new one.
+`useSeries<CustomIncrementalController<MyData, MyOptions>>()` captures a known
+custom scope; `apiRef` infers those types directly from the view factory.
+
+Gurafu invalidates managed refs, stops its effects and explicitly detaches owned
+plugins/primitives and destroys custom views while native handles still exist.
+`onDispose(instance)` is additional consumer cleanup; do not detach/destroy the
+instance again. Consumer-owned subscriptions still need consumer cleanup.
+Series are removed before emptied native panes and the chart. Use managed
+composition for populated-pane removal. Direct native populated-pane removal is
+outside this contract at the pinned version.
+
+The **Extensions and lifecycle** example demonstrates nonzero-pane custom rendering,
+owned annotation/watermark/markers, empty versus removed state, retained movement
+and pane ordering, and moving a series before removing its old native pane.

@@ -80,3 +80,8 @@ tasks:
     command: bun run test:indicators
     options:
       cache: false
+
+  test-market:
+    command: bun run test:market
+    options:
+      cache: false

@@ -2,11 +2,14 @@ import { configureStore, createSlice, SoluxProvider, useSolux } from "@carere/so
 import { createSignal, Show } from "solid-js";
 import { render } from "solid-js/web";
 import * as Chart from "~/components/gurafu/chart";
+import { Services21 } from "./services-21";
 import "./style.css";
 import { Basics } from "./basics-example";
 import { Composition19 } from "./composition-19";
 import { mountDataFixture } from "./data-fixture";
 import { DataHistory } from "./data-history";
+import { Extensions27 } from "./extensions-27";
+import { ExtensionsLifecycle } from "./extensions-example";
 import { IndicatorsPanes } from "./indicators-example-22";
 import { mountIndicators22 } from "./indicators-fixture-22";
 import { mountIndicators23 } from "./indicators-fixture-23";
@@ -187,7 +190,11 @@ function Composition() {
     </Show>
   );
 }
-if (location.search.includes("indicators-example22")) render(() => <IndicatorsPanes />, host);
+if (location.search.includes("services21")) render(() => <Services21 />, host);
+else if (location.search.includes("extensions-example"))
+  render(() => <ExtensionsLifecycle />, host);
+else if (location.search.includes("extensions27")) render(() => <Extensions27 />, host);
+else if (location.search.includes("indicators-example22")) render(() => <IndicatorsPanes />, host);
 else if (location.search.includes("indicators23")) mountIndicators23(host);
 else if (location.search.includes("indicators22")) mountIndicators22(host);
 else if (location.search.includes("history")) render(() => <DataHistory />, host);
