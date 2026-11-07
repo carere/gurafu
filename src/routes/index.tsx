@@ -5,6 +5,8 @@ import { DataHistory } from "@/components/examples/data-history";
 import dataHistorySource from "@/components/examples/data-history.tsx?raw";
 import { ExtensionsLifecycle } from "@/components/examples/extensions";
 import extensionsSource from "@/components/examples/extensions.tsx?raw";
+import { IndependentCharts } from "@/components/examples/independent-charts";
+import independentSource from "@/components/examples/independent-charts.tsx?raw";
 import { IndicatorsPanes } from "@/components/examples/indicators-panes";
 import indicatorsSource from "@/components/examples/indicators-panes.tsx?raw";
 import { NativePanes } from "@/components/examples/native-panes";
@@ -94,6 +96,17 @@ function Home() {
             {"\n"}
             {replayEvidenceSource}
           </code>
+        </pre>
+      </details>
+      <ClientOnly fallback={<p role="status">Independent charts load in your browser.</p>}>
+        <IndependentCharts app={app()} />
+      </ClientOnly>
+      <details class="text-sm">
+        <summary class="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2">
+          Read the Independent charts source
+        </summary>
+        <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <code>{independentSource}</code>
         </pre>
       </details>
       <ExtensionsLifecycle />

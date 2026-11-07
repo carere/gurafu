@@ -2,6 +2,7 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chartSpaDirectory as consumer } from "./chart-spa-path";
 import { prepareCompositionExamples } from "./prepare-chart-composition-19";
+import { prepareIndependent26 } from "./prepare-independent-26";
 import {
   installIndicators22,
   verifyCoreOnly22,
@@ -13,6 +14,7 @@ await rm(consumer, { recursive: true, force: true });
 await mkdir(consumer, { recursive: true });
 await cp("tests/chart-spa", consumer, { recursive: true });
 await prepareCompositionExamples(consumer);
+await prepareIndependent26(consumer);
 await cp("src/components/examples/extensions-view.ts", resolve(consumer, "src/extensions-view.ts"));
 await writeFile(
   resolve(consumer, "src/extensions-example.tsx"),
