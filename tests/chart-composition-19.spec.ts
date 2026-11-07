@@ -17,6 +17,14 @@ declare global {
       remove(): void;
       restore(): void;
       changePaneId(): void;
+      cleanupObservations: {
+        paneRefCleared: boolean;
+        seriesRefCleared: boolean;
+        paneReady: boolean;
+        seriesReady: boolean;
+        paneApiRejected: boolean;
+        seriesApiRejected: boolean;
+      }[];
       saved?: {
         chart: ChartController;
         pane: PaneController;
@@ -423,6 +431,27 @@ test("type changes and transfers create new resources; removed final native layo
   await page.evaluate(() => window.lifetimes19.restore());
   await expect.poll(() => page.evaluate(() => window.lifetimes19.series[1]?.hasData())).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test("declaration cleanup invalidates retained handles before later consumer effects", async ({
+  page,
+}) => {
+  await page.goto("/?lifetimes19");
+  await expect.poll(() => page.evaluate(() => window.lifetimes19?.series[0]?.ready())).toBe(true);
+  const observations = await page.evaluate(() => {
+    window.lifetimes19.remove();
+    return window.lifetimes19.cleanupObservations;
+  });
+  expect(observations).toEqual([
+    {
+      paneRefCleared: true,
+      seriesRefCleared: true,
+      paneReady: false,
+      seriesReady: false,
+      paneApiRejected: true,
+      seriesApiRejected: true,
+    },
+  ]);
 });
 
 test("pane stretch, constrained height and native separator resizing stay usable after reorder", async ({

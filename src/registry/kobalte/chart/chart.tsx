@@ -413,6 +413,15 @@ export function Pane(props: PaneProps) {
     const id = props.id;
     let setLive: ((value: boolean) => void) | undefined;
     let managed: PaneController | undefined;
+    const invalidate = () => {
+      setLive?.(false);
+      // An id change can create the replacement before removing this pane.
+      // Never clear the replacement's ref/controller while releasing the old.
+      if (untrack(controller) === managed) {
+        clearRef();
+        setController(undefined);
+      }
+    };
     const declaration: PaneDeclaration = {
       id,
       marker,
@@ -431,13 +440,7 @@ export function Pane(props: PaneProps) {
       dispose() {
         const api = declaration.api;
         if (!api) return;
-        setLive?.(false);
-        // An id change can create the replacement before removing this pane.
-        // Never clear the replacement's ref/controller while releasing the old.
-        if (untrack(controller) === managed) {
-          clearRef();
-          setController(undefined);
-        }
+        invalidate();
         declaration.api = undefined;
         const chart = scope.api();
         if (chart) scope.withoutEvents(() => chart.removePane(api.paneIndex()));
@@ -447,6 +450,7 @@ export function Pane(props: PaneProps) {
     scope.schedule();
     onCleanup(() => {
       declaration.active = false;
+      invalidate();
       scope.schedule();
     });
   });
@@ -494,6 +498,7 @@ function StandardSeries<K extends StandardSeriesType>(
   createEffect(() => {
     const id = props.id;
     let release = () => {};
+    let invalidate = () => {};
     const declaration: SeriesDeclaration = {
       id,
       marker,
@@ -507,15 +512,18 @@ function StandardSeries<K extends StandardSeriesType>(
             target.paneIndex(),
           );
           declaration.api = api;
+          let active = true;
           const [ready, setReady] = createSignal(false);
           const [hasData, setHasData] = createSignal(false);
           const changed: DataChangedHandler = (change) => {
+            if (!active) return;
             setHasData(api.data().some((row) => "close" in row || "value" in row));
             setReady(true);
             untrack(() => props.onDataChange?.(change));
           };
           api.subscribeDataChanged(changed);
-          setController(Object.assign(resource(api, ready), { hasData }));
+          const managed = Object.assign(resource(api, ready), { hasData });
+          setController(managed);
           createEffect(() => {
             const rows = props.data;
             setReady(false);
@@ -530,14 +538,21 @@ function StandardSeries<K extends StandardSeriesType>(
             const options = props.options;
             if (options) api.applyOptions(options);
           });
-          release = () => {
-            release = () => {};
+          invalidate = () => {
+            if (!active) return;
+            active = false;
             disposeRoot();
             api.unsubscribeDataChanged(changed);
             setReady(false);
             setHasData(false);
-            clearRef();
-            setController(undefined);
+            if (untrack(controller) === managed) {
+              clearRef();
+              setController(undefined);
+            }
+          };
+          release = () => {
+            release = () => {};
+            invalidate();
             declaration.api = undefined;
             scope.withoutEvents(() => chartApi.removeSeries(api));
           };
@@ -556,6 +571,9 @@ function StandardSeries<K extends StandardSeriesType>(
     });
     onCleanup(() => {
       declaration.active = false;
+      // Managed handles/effects end with their owner. Native removal remains
+      // deferred so retained sibling series can move before a pane is removed.
+      invalidate();
       scope.schedule();
     });
   });
