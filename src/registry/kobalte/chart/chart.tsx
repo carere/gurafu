@@ -206,7 +206,15 @@ export function useSeries(): Accessor<StandardController<StandardSeriesType> | u
 export function useIndicatorHost() {
   const scope = required(useContext(ChartContext), "Indicator");
   return {
-    displayed: (id: string) => scope.data()?.sources().get(id)?.displayed() ?? [],
+    displayed(id: string) {
+      const coordinator = scope.data();
+      const source = coordinator?.sources().get(id);
+      // Declarations may precede their source. During a context switch, resolve
+      // that source before deriving a snapshot, rather than publish a ready
+      // empty/old result until Solid's later effects reconcile it again.
+      if (coordinator?.switching()) untrack(() => source?.reconcile());
+      return source?.displayed() ?? [];
+    },
     interaction: scope.indicatorInteraction,
     register(id: string, request: (visible: boolean) => void) {
       if (scope.indicators.has(id)) throw new Error(`Duplicate chart-local indicator id: ${id}`);

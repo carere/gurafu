@@ -32,6 +32,13 @@ export function mountIndicators22(host: HTMLElement) {
     chart: undefined as Chart.ChartController | undefined,
     sibling: undefined as Chart.ChartController | undefined,
     candles: undefined as Chart.CandlestickIncrementalController | undefined,
+    events: [] as {
+      ready: boolean;
+      candles: number[];
+      bands: number[];
+      sma: number[];
+      preceding: number[];
+    }[],
     requests: [] as boolean[],
     row,
     time,
@@ -79,11 +86,45 @@ export function mountIndicators22(host: HTMLElement) {
           style={{ height: "360px" }}
         >
           <Chart.Pane id="price">
+            <Indicators.SMA
+              id="preceding"
+              source="candles"
+              parameters={{ period: 3 }}
+              options={{ title: "preceding" }}
+            />
             <Chart.CandlestickSeries
               id="candles"
               defaultData={seed() as readonly import("lightweight-charts").CandlestickData[]}
               apiRef={(v) => {
                 state.candles = v;
+              }}
+              onDataChange={() => {
+                if (!state.chart || !state.candles) return;
+                const ready = state.chart.ready();
+                state.events.push({
+                  ready,
+                  candles: ready
+                    ? state.candles.api.data().flatMap((r) => ("close" in r ? [r.close] : []))
+                    : [],
+                  bands: ready
+                    ? state
+                        .line("calc-middle")
+                        .data()
+                        .flatMap((r) => ("value" in r ? [r.value] : []))
+                    : [],
+                  sma: ready
+                    ? state
+                        .line("sma")
+                        .data()
+                        .flatMap((r) => ("value" in r ? [r.value] : []))
+                    : [],
+                  preceding: ready
+                    ? state
+                        .line("preceding")
+                        .data()
+                        .flatMap((r) => ("value" in r ? [r.value] : []))
+                    : [],
+                });
               }}
             />
             <Indicators.BollingerBands

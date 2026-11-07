@@ -10,6 +10,13 @@ type ReturnTypeFixture = {
   sibling: import("../src/registry/kobalte/chart/chart").ChartController;
   candles: import("../src/registry/kobalte/chart/chart").CandlestickIncrementalController;
   requests: boolean[];
+  events: {
+    ready: boolean;
+    candles: number[];
+    bands: number[];
+    sma: number[];
+    preceding: number[];
+  }[];
   row(i: number, close?: number): import("lightweight-charts").CandlestickData;
   time(i: number): string;
   initial: import("lightweight-charts").CandlestickData[];
@@ -33,6 +40,26 @@ type ReturnTypeFixture = {
 test.beforeEach(async ({ page }) => {
   await page.goto("/?indicators22");
   await expect.poll(() => page.evaluate(() => window.indicators22?.chart?.ready())).toBe(true);
+});
+test("dataset-context completion callbacks observe current candles and calculated overlays together", async ({
+  page,
+}) => {
+  const events = await page.evaluate(() => {
+    const s = window.indicators22;
+    s.events.length = 0;
+    s.switch();
+    return s.events;
+  });
+  expect(events.length).toBeGreaterThan(0);
+  expect(events).toEqual(
+    events.map(() => ({
+      ready: true,
+      candles: [10, 20, 30],
+      bands: [20],
+      sma: [20],
+      preceding: [20],
+    })),
+  );
 });
 test("calculated and supplied Bands match; all displayed-source mutations match fresh batch without future history", async ({
   page,
