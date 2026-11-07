@@ -4,6 +4,7 @@ import type {
   CandlestickIncrementalController,
   CandlestickSnapshotController,
   ChartController,
+  LineIncrementalController,
 } from "../src/registry/kobalte/chart/chart";
 
 type Row = SeriesDataItemTypeMap<Time>["Candlestick"];
@@ -11,6 +12,8 @@ declare global {
   interface Window {
     dataTest: {
       chart: ChartController;
+      line: LineIncrementalController;
+      moveLine(): void;
       incremental: CandlestickIncrementalController;
       snapshot: CandlestickSnapshotController;
       initial: readonly Row[];
@@ -433,4 +436,51 @@ test("a new generation drops an old pending viewport intent before immediate inc
       };
     }),
   ).toEqual({ following: 0, ready: true, rows: [200, 210, 220, 230] });
+});
+
+test("incremental single-value data and controllers survive retained pane movement and reset per context", async ({
+  page,
+}) => {
+  await page.goto("/?data-compose");
+  await expect.poll(() => page.evaluate(() => window.dataTest.line?.ready())).toBe(true);
+  await page.evaluate(() => {
+    const s = window.dataTest,
+      c = s.line;
+    c.setData([
+      { time: s.row(10).time, value: 0 },
+      { time: s.row(40).time, value: 4 },
+    ]);
+    Object.assign(window, { retainedLine: { controller: c, native: c.api } });
+    s.moveLine();
+  });
+  await expect
+    .poll(() => page.evaluate(() => window.dataTest.line.api.getPane().paneIndex()))
+    .toBe(1);
+  expect(
+    await page.evaluate(() => {
+      const s = window.dataTest;
+      const before = (
+        window as unknown as {
+          retainedLine: { controller: typeof s.line; native: typeof s.line.api };
+        }
+      ).retainedLine;
+      const moved = {
+        identity: s.line === before.controller && s.line.api === before.native,
+        data: s.line.api.data(),
+        hasData: s.line.hasData(),
+      };
+      s.switch("single-value-next", []);
+      return {
+        moved,
+        reset: s.line.api.data(),
+        identity: s.line === before.controller && s.line.api === before.native,
+        ready: s.line.ready(),
+      };
+    }),
+  ).toMatchObject({
+    moved: { identity: true, data: [{ value: 0 }, { value: 4 }], hasData: true },
+    reset: [{ value: 5 }],
+    identity: true,
+    ready: true,
+  });
 });

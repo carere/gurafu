@@ -3,8 +3,13 @@ import { createSignal, Show } from "solid-js";
 import { render } from "solid-js/web";
 import * as Chart from "~/components/gurafu/chart";
 import "./style.css";
+import { Basics } from "./basics-example";
+import { Composition19 } from "./composition-19";
 import { mountDataFixture } from "./data-fixture";
 import { DataHistory } from "./data-history";
+import { Lifetimes19 } from "./lifetimes-19";
+import { NativePanes } from "./native-panes-example";
+import { Panes19 } from "./panes-19";
 
 const initial = Object.freeze([
   Object.freeze({ time: "2026-10-01", open: 100, high: 110, low: 90, close: 105 }),
@@ -184,7 +189,18 @@ else if (location.search.includes("data")) mountDataFixture(host);
 else
   render(
     () =>
-      app ? (
+      location.search.includes("lifetimes19") ? (
+        <Lifetimes19 />
+      ) : location.search.includes("basics19") ? (
+        <>
+          <Basics />
+          <NativePanes />
+        </>
+      ) : location.search.includes("panes19") ? (
+        <Panes19 />
+      ) : location.search.includes("composition19") ? (
+        <Composition19 />
+      ) : app ? (
         <SoluxProvider store={app}>
           <Composition />
         </SoluxProvider>

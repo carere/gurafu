@@ -114,8 +114,10 @@ validates it before generating static JSON in `public/r/kobalte`, which is
 served at `/r/kobalte/registry.json`. Generated registry files are ignored by Git
 and rebuilt before development and production builds.
 
-The `chart` item currently installs `Root`, `Pane`, snapshot/incremental `CandlestickSeries`,
-scoped `useChart` / `usePane` / `useSeries` accessors and their controller/prop types.
+The `chart` item installs `Root`, `Pane`, snapshot/incremental `CandlestickSeries`, `BarSeries`,
+`LineSeries`, `AreaSeries`, `BaselineSeries` and `HistogramSeries`, scoped
+`useChart` / `usePane` / `useSeries` accessors, matching native controller/prop
+types, and plain `lightChartOptions` / `darkChartOptions` presets.
 It pins Lightweight Charts **5.2.1**, published **@carere/solux 4.1.0**, and Solid
 **1.9.18**. Core has no Zaidan, Kobalte, TanStack or Effect dependency.
 
@@ -139,7 +141,10 @@ import * as Chart from "~/components/gurafu/chart";
 ```
 
 Supply an ascending, unique readonly snapshot (including `[]` for empty data).
-Native partial-option patches preserve omitted settings. Core copies row/time
+Native partial-option patches preserve omitted settings. Root exposes complete
+native chart options; `layout.colorSpace` and `layout.colorParsers` are read only
+at chart creation, as required by upstream. Presets own explicit appearance
+values; the consumer chooses themes and persistence. Core copies row/time
 objects before normalization; arbitrary metadata is not deep-cloned. Controllers
 expose native `.api`, `ready()` and series `hasData()`. Hooks capture accessors
 before mounting; check readiness before accessing the native handle. API refs
@@ -147,22 +152,43 @@ clear on removal and callback replacement. Raw native writes bypass managed data
 and layout reconciliation. Model readiness does not promise usable coordinates
 for hidden or zero-size containers. Consumers own dimensions and data recovery.
 
+Pane and series ids are chart-local identities. Nesting selects the declared
+pane; root-level series require `pane="id"`. Reactive pane targets and Solid
+keyed declaration reorder retain compatible series/controller/data identity.
+Changing an id/type, removing and reintroducing a declaration, or transferring
+it to another chart creates a fresh resource. Old managed handles stay disposed.
+Retained series move before former panes are removed; remaining children are
+removed before their pane. Empty declared panes persist, including with `[]`.
+The final native empty layout pane does not keep a removed declaration alive.
+
+Pane `stretchFactor` and `height` use native sizing constraints. Consumers own
+chart dimensions; native separators support user resizing. Initial creation and
+keyed order reconcile before native widgets are necessarily laid out. Reacquire
+native `series.api.priceScale()` after movement or price-scale changes: cached
+native scale handles stay bound to their former pane/scale.
+
 The homepage's [Basics example](src/components/examples/basics.tsx) demonstrates
-snapshot replacement and empty display. [Data and history](src/components/examples/data-history.tsx)
-provides independent snapshot and incremental variants with manually resolved
-fixture requests, out-of-order completion, retryable failure, context switching,
-live updates, corrections, pop and load-before-date navigation. The application
-keeps its recoverable history, merges pages with current live corrections, and
-rejects obsolete results before writing. These fixtures do not claim live-network
-integration. Other standard series, pane movement/reorder, extensions and optional
-UI remain with their tickets in [spec #17](https://github.com/carere/gurafu/issues/17).
+all six standard families, snapshot replacement/empty display, autosizing and
+appearance controls. The [native panes example](src/components/examples/native-panes.tsx)
+defaults to a separate native volume pane and includes an intentional overlay
+alternative and keyed pane reorder. Supplied volume/candle colors count dojis
+as up (`close >= open`); core does not generate volume. Both readable sources
+also mount in the installed non-TanStack SPA acceptance harness.
+
+[Data and history](src/components/examples/data-history.tsx) demonstrates separate
+snapshot/incremental charts, explicitly resolved fixture requests, out-of-order
+completion, failures/retry, context switching, updates, correction, pop and
+load-before-date navigation. The application retains recoverable history, merges
+pages with current live corrections and rejects obsolete results before writing.
+These fixtures do not claim live-network integration. Custom extensions and
+optional UI remain in [spec #17](https://github.com/carere/gurafu/issues/17).
 
 ### Data authority and navigation
 
 An array `data` selects snapshot authority. Omit `data` for incremental authority,
 initially empty or seeded by `defaultData`. The two props are exclusive, and the
 snapshot controller has no managed data writer. Recreate the declaration to change
-modes intentionally. Incremental controllers retain native candlestick types and
+modes intentionally. Incremental controllers retain each family's native and row types and
 expose `setData(readonlyRows)`, `update(row, historicalUpdate?)` and `pop(count)`.
 Equal latest time replaces the complete bar; newer time appends. `setData([])`
 clears display while retaining resources. Each completed managed operation updates
@@ -213,7 +239,7 @@ installs declared published dependencies, compiles positive/negative public type
 with `skipLibCheck: false`, builds a non-TanStack Solid SPA, reports the single
 Solid runtime and runs Chromium browser checks against that installed source.
 No local Solux build or application-wide provider is required. Dedicated component
-SSR/hydration and later spec features are outside these ticket checks.
+SSR/hydration and later spec features are outside this slice.
 
 ## Source layout
 

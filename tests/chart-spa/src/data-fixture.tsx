@@ -21,7 +21,12 @@ export function mountDataFixture(host: HTMLElement) {
     data: readonly Row[];
     seed: readonly Row[];
   }>({ key: "first", data: sibling, seed: initial });
+  const [linePane, setLinePane] = createSignal("price");
   const state = {
+    line: undefined as Chart.LineIncrementalController | undefined,
+    moveLine() {
+      setLinePane((p) => (p === "price" ? "other" : "price"));
+    },
     chart: undefined as Chart.ChartController | undefined,
     incremental: undefined as Chart.CandlestickIncrementalController | undefined,
     snapshot: undefined as Chart.CandlestickSnapshotController | undefined,
@@ -86,6 +91,17 @@ export function mountDataFixture(host: HTMLElement) {
               }}
             />
           </Chart.Pane>
+          <Show when={location.search.includes("compose")}>
+            <Chart.Pane id="other" />
+            <Chart.LineSeries
+              id="line"
+              pane={linePane()}
+              defaultData={[{ time: row(10).time, value: 5 }]}
+              apiRef={(v) => {
+                state.line = v;
+              }}
+            />
+          </Show>
         </Chart.Root>
       </Show>
     ),

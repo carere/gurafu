@@ -5,7 +5,7 @@ export default defineConfig({
   testMatch: "*.spec.ts",
   use: { baseURL: `http://127.0.0.1:${chartSpaPort}` },
   webServer: {
-    command: `npm run dev -- --port ${chartSpaPort} --strictPort`,
+    command: `npm run dev -- --port ${chartSpaPort}`,
     cwd: chartSpaDirectory,
     url: `http://127.0.0.1:${chartSpaPort}`,
     reuseExistingServer: false,
