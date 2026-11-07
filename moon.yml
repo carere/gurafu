@@ -75,3 +75,8 @@ tasks:
     command: bun run test:solux
     options:
       cache: false
+
+  test-indicators:
+    command: bun run test:indicators
+    options:
+      cache: false

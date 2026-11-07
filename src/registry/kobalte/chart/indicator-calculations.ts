@@ -93,3 +93,76 @@ export function calculateBollingerBands<T extends Time>(
     return { time, middle, upper: middle + width, lower: middle - width };
   });
 }
+
+export type EMAParameters = { period?: number; priceInput?: PriceInput };
+export type RSIParameters = { period?: number; priceInput?: PriceInput };
+
+export function calculateEMA<T extends Time>(
+  rows: readonly PriceRow<T>[],
+  parameters: EMAParameters = {},
+): IndicatorValue<T>[] {
+  const period = parameters.period ?? 20;
+  const alpha = 2 / (period + 1);
+  let window = new PriceWindow(period);
+  let previous: number | undefined;
+  return rows.map((row) => {
+    const value = price(row, parameters.priceInput ?? "close");
+    if (value === undefined) {
+      window = new PriceWindow(period);
+      previous = undefined;
+      return { time: row.time };
+    }
+    previous =
+      previous === undefined ? window.push(value)?.mean : alpha * value + (1 - alpha) * previous;
+    return previous === undefined ? { time: row.time } : { time: row.time, value: previous };
+  });
+}
+
+// Changes, not prices, form the seed. A whitespace row also forgets the
+// preceding price, so no change crosses an explicitly unavailable observation.
+export function calculateRSI<T extends Time>(
+  rows: readonly PriceRow<T>[],
+  parameters: RSIParameters = {},
+): IndicatorValue<T>[] {
+  const period = parameters.period ?? 14;
+  let gains = new PriceWindow(period);
+  let losses = new PriceWindow(period);
+  let previous: number | undefined;
+  let averageGain: number | undefined;
+  let averageLoss: number | undefined;
+  return rows.map((row) => {
+    const value = price(row, parameters.priceInput ?? "close");
+    if (value === undefined) {
+      gains = new PriceWindow(period);
+      losses = new PriceWindow(period);
+      previous = averageGain = averageLoss = undefined;
+      return { time: row.time };
+    }
+    if (previous === undefined) {
+      previous = value;
+      return { time: row.time };
+    }
+    const change = value - previous;
+    previous = value;
+    const gain = Math.max(change, 0);
+    const loss = Math.max(-change, 0);
+    averageGain =
+      averageGain === undefined
+        ? gains.push(gain)?.mean
+        : (averageGain * (period - 1) + gain) / period;
+    averageLoss =
+      averageLoss === undefined
+        ? losses.push(loss)?.mean
+        : (averageLoss * (period - 1) + loss) / period;
+    if (averageGain === undefined || averageLoss === undefined) return { time: row.time };
+    const result =
+      averageGain === 0
+        ? averageLoss === 0
+          ? 50
+          : 0
+        : averageLoss === 0
+          ? 100
+          : (100 * averageGain) / (averageGain + averageLoss);
+    return { time: row.time, value: result };
+  });
+}
