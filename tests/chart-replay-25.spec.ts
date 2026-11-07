@@ -256,6 +256,10 @@ test("historical replay excludes incomplete bars and removal aborts a pending se
   await page.evaluate(() => window.replay25.resolve(0, [0, 1, 95]));
   const replay = region(page);
   await expect(replay.getByRole("status")).toContainText("3 revealed candles");
+  await expect(replay.getByRole("region", { name: "Replay chart", exact: true })).toHaveCSS(
+    "height",
+    "384px",
+  );
   await replay.getByRole("button", { name: "Start replay" }).click();
   await replay.getByRole("button", { name: "Step forward" }).click();
   await expect(replay.getByRole("status")).toContainText(

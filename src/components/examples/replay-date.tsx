@@ -148,7 +148,8 @@ export function ReplayDateNavigation(props: {
       <Chart.Root
         apiRef={setChart}
         datasetKey={`${replay.data.key()}:${replay.mode() === "partial" ? "finer-fixture" : "market"}`}
-        class="h-96 w-full"
+        class="w-full"
+        style={{ height: "384px" }}
         role="region"
         aria-label="Replay chart"
         options={{ ...Chart.lightChartOptions, autoSize: true }}
