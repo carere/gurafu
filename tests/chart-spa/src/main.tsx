@@ -2,6 +2,7 @@ import { configureStore, createSlice, SoluxProvider, useSolux } from "@carere/so
 import { createSignal, Show } from "solid-js";
 import { render } from "solid-js/web";
 import * as Chart from "~/components/gurafu/chart";
+import { Services21 } from "./services-21";
 import "./style.css";
 import { Basics } from "./basics-example";
 import { Composition19 } from "./composition-19";
@@ -186,7 +187,8 @@ function Composition() {
     </Show>
   );
 }
-if (location.search.includes("indicators-example22")) render(() => <IndicatorsPanes />, host);
+if (location.search.includes("services21")) render(() => <Services21 />, host);
+else if (location.search.includes("indicators-example22")) render(() => <IndicatorsPanes />, host);
 else if (location.search.includes("indicators22")) mountIndicators22(host);
 else if (location.search.includes("history")) render(() => <DataHistory />, host);
 else if (location.search.includes("data")) mountDataFixture(host);

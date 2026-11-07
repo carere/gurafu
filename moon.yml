@@ -75,3 +75,8 @@ tasks:
     command: bun run test:solux
     options:
       cache: false
+
+  test-market:
+    command: bun run test:market
+    options:
+      cache: false
