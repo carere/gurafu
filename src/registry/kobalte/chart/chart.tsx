@@ -52,7 +52,12 @@ import {
   useContext,
 } from "solid-js";
 import { isServer } from "solid-js/web";
-import { createDataCoordinator, createManagedData, type DataCoordinator } from "./chart-data";
+import {
+  createDataCoordinator,
+  createManagedData,
+  type DataCoordinator,
+  timeKey,
+} from "./chart-data";
 
 export type ApiRef<C> = (value: C | undefined) => void;
 export interface ResourceController<A> {
@@ -227,7 +232,6 @@ type ChartScope = {
   data: Accessor<DataCoordinator | undefined>;
   controller: Accessor<ChartController | undefined>;
   api: Accessor<IChartApi | undefined>;
-  own: (dispose: () => void) => () => void;
   withoutEvents: (dispose: () => void) => void;
   panes: Set<PaneDeclaration>;
   series: Set<SeriesDeclaration>;
@@ -333,13 +337,7 @@ export function useIndicatorHost() {
 
 // Calendar representations compare by native UTC identity, without nearest-bar lookup.
 function sameTime(a: Time, b: Time) {
-  const key = (t: Time) =>
-    typeof t === "number"
-      ? t
-      : typeof t === "string"
-        ? Date.parse(t) / 1000
-        : Date.UTC(t.year, t.month - 1, t.day) / 1000;
-  return key(a) === key(b);
+  return timeKey(a) === timeKey(b);
 }
 export function useLegend(options: LegendOptions): Accessor<LegendModel> {
   const scope = required(useContext(ChartContext), "useLegend");
@@ -457,7 +455,6 @@ export function Root(props: RootProps) {
   const [indicatorVersion, setIndicatorVersion] = createSignal(0);
   const [readers, setReaders] = createSignal<ReadonlyMap<string, SeriesReader>>(new Map());
   const clearRef = bindRef(() => local.apiRef, controller);
-  const owned = new Set<() => void>();
   let silencing = 0;
   let scheduled = false;
   let alive = true;
@@ -551,10 +548,6 @@ export function Root(props: RootProps) {
       } finally {
         silencing--;
       }
-    },
-    own(dispose) {
-      owned.add(dispose);
-      return () => owned.delete(dispose);
     },
   };
   onMount(() => {
@@ -762,7 +755,6 @@ export function Root(props: RootProps) {
       store.dispose();
       for (const declaration of series) declaration.dispose();
       for (const declaration of panes) declaration.dispose();
-      for (const dispose of [...owned].reverse()) dispose();
       setController(undefined);
       setNativeApi(undefined);
       api.remove();

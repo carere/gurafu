@@ -19,6 +19,7 @@ import {
   type LineSnapshotController,
   useIndicatorHost,
 } from "./chart";
+import { timeKey } from "./chart-data";
 import {
   type BollingerBandsParameters,
   type BollingerBandsValue,
@@ -167,12 +168,6 @@ function exactValue(
   color: string,
   direction?: { rising: string; falling: string },
 ) {
-  const key = (t: Time) =>
-    typeof t === "number"
-      ? t
-      : typeof t === "string"
-        ? Date.parse(t) / 1000
-        : Date.UTC(t.year, t.month - 1, t.day) / 1000;
   let previous: number | undefined;
   let incoming = direction?.rising ?? color;
   for (const row of rows) {
@@ -184,32 +179,37 @@ function exactValue(
         incoming = row.value > previous ? direction.rising : direction.falling;
       previous = row.value;
     }
-    if (time !== null && key(row.time) === key(time))
+    if (time !== null && timeKey(row.time) === timeKey(time))
       return !("value" in row) ? null : { value: row.value, color: incoming };
   }
   return null;
 }
-export function SMA(props: SMAProps) {
+function singleLine<P>(
+  props: Declaration & Input<IndicatorValue, P> & { options?: LineSeriesPartialOptions },
+  calculate: (rows: readonly PriceRow[], parameters?: P) => readonly IndicatorValue[],
+  config: {
+    label: string;
+    suffix: string;
+    defaults: LineSeriesPartialOptions & { color: string };
+  },
+) {
   const host = useIndicatorHost();
   const visible = visibility(props, host, (time) => ({
     id: props.id,
-    label: "Price SMA",
+    label: config.label,
     visible: visible(),
     values: { value: exactValue(values(), time, presentation.color()) },
   }));
   const values = createMemo(
     () =>
       props.data ??
-      calculateSMA(host.displayed(props.source) as readonly PriceRow[], props.parameters),
+      calculate(host.displayed(props.source) as readonly PriceRow[], props.parameters),
   );
-  const presentation = linePresentation(props, () => props.options, visible, {
-    lineWidth: 2,
-    color: "#2196F3",
-  });
+  const presentation = linePresentation(props, () => props.options, visible, config.defaults);
   const rows = createMemo(() => lineRows(values(), presentation.color()));
   return (
     <LineSeries
-      id={`${props.id}/sma`}
+      id={`${props.id}/${config.suffix}`}
       pane={props.pane}
       data={rows()}
       apiRef={presentation.initialize}
@@ -219,6 +219,13 @@ export function SMA(props: SMAProps) {
       }}
     />
   );
+}
+export function SMA(props: SMAProps) {
+  return singleLine(props, calculateSMA, {
+    label: "Price SMA",
+    suffix: "sma",
+    defaults: { lineWidth: 2, color: "#2196F3" },
+  });
 }
 export function BollingerBands(props: BollingerBandsProps) {
   const host = useIndicatorHost();
@@ -313,35 +320,11 @@ export function BollingerBands(props: BollingerBandsProps) {
 // Optional calculations always start from the managed displayed history, just
 // like SMA/Bands: corrections, rewind and context changes retain no future seed.
 export function EMA(props: EMAProps) {
-  const host = useIndicatorHost();
-  const visible = visibility(props, host, (time) => ({
-    id: props.id,
+  return singleLine(props, calculateEMA, {
     label: "Price EMA",
-    visible: visible(),
-    values: { value: exactValue(values(), time, presentation.color()) },
-  }));
-  const values = createMemo(
-    () =>
-      props.data ??
-      calculateEMA(host.displayed(props.source) as readonly PriceRow[], props.parameters),
-  );
-  const presentation = linePresentation(props, () => props.options, visible, {
-    lineWidth: 2,
-    color: "#FF9800",
+    suffix: "ema",
+    defaults: { lineWidth: 2, color: "#FF9800" },
   });
-  const rows = createMemo(() => lineRows(values(), presentation.color()));
-  return (
-    <LineSeries
-      id={`${props.id}/ema`}
-      pane={props.pane}
-      data={rows()}
-      apiRef={presentation.initialize}
-      options={{
-        ...props.options,
-        visible: visible(),
-      }}
-    />
-  );
 }
 
 const rsiRange: NonNullable<LineSeriesPartialOptions["autoscaleInfoProvider"]> = () => ({

@@ -67,6 +67,21 @@ passed. Initial gallery test failures also corrected a source-disclosure selecto
 (it selected the lifecycle log) and an incorrect test button name. Neither was a
 chart behavior change. Feature implementations and all earlier suites are retained.
 
+## Review maintenance — 2026-11-07
+
+The two-axis review found no documented-standard violations and no spec findings.
+Its three maintenance findings are addressed: native Time identity is shared from
+the existing internal data helper, SMA/EMA share private single-line composition,
+and Root's unused cleanup registry is removed. Public declarations, calculations,
+defaults, native option patching and actual extension ownership remain unchanged.
+
+Frozen installation and all ten Moon tasks passed again: Chromium **81 passed**,
+numerical **16 tests / 147 assertions**, market **6 tests / 54 assertions**, and
+published Solux **4.1.0**. Registry builds, strict installed consumer types and
+independent dependency/single-runtime boundaries passed. No new manual run is
+claimed; the recorded evidence and limits below remain applicable. Verification
+after merging these fixes into the integration branch remains the parent handoff.
+
 ## Acceptance coverage
 
 Earlier feature suites remain the source of truth; #28 adds one assembled-gallery

@@ -5,7 +5,8 @@ import { type Accessor, createEffect, createSignal, onCleanup, untrack } from "s
 export function copyRow<D extends { time: Time }>(row: D): D {
   return { ...row, time: typeof row.time === "object" ? { ...row.time } : row.time };
 }
-function timeKey(time: Time): number {
+/** @internal Shared native Time identity for managed data and optional read models. */
+export function timeKey(time: Time): number {
   if (typeof time === "number") return time;
   return typeof time === "string"
     ? Date.parse(time) / 1000
