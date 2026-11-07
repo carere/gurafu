@@ -425,3 +425,32 @@ state. This is private interaction inspection, with no persistence schema,
 deterministic effect/data replay or shared application timeline contract.
 The Indicators and panes example includes an explicit inspector toggle which
 remounts that chart, plus actual legend/selection controls.
+
+### Independent charts
+
+The homepage's [Independent charts source](src/components/examples/independent-charts.tsx)
+starts with BTCUSDT at 1m/5m and adds up to four chart instances. Each instance
+uses the shared website `MarketApp` with its own Query dataset key, scoped stream,
+controllers and price/volume/RSI panes. Symbol/timeframe assignment retains compatible
+native resources. Removal cancels only that chart's work; re-add creates fresh
+resources and private settings. The root application owns runtime disposal.
+
+Consumer coordination is a parent-owned `{ sender, time: UTCTimestamp }` signal.
+Only changed pointer time from the inner native surface publishes, excluding
+legend/control interactions. Receivers ignore themselves, check current resource
+readiness, populated candles and the native visible time range, then call
+`setCrosshairPosition(0, originalTime, candleController)` or clear. Source leave
+restores the local latest legend and leaves the last broadcast intact. Assigning
+or removing the sender clears its obsolete signal/focus. There is no viewport
+synchronization or shared chart-private store.
+
+The installed Chromium fixture exercises the actual example through
+`ExchangeGateway`/Query/Effect, including controlled page completions and late
+stream callbacks. With a 1m source at 2026-01-01 00:31 UTC and a 5m receiver,
+Lightweight Charts **5.2.1** resolves the missing target time to the **00:35 bar**
+(native lookup index 7; rendered crosshair at that bar, with native magnet price
+111 in this fixture). The consumer still sends **1767227460** seconds and the
+exact-time target legend shows unavailable OHLC/volume. This native placement is
+not a promise of exact cross-timeframe alignment; the example performs no
+bucketing, nearest-bar mapping, target-price derivation or shared-coordinate math.
+These deterministic checks do not certify live Binance connectivity or reconnects.
