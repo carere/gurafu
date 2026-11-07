@@ -76,6 +76,11 @@ tasks:
     options:
       cache: false
 
+  test-indicators:
+    command: bun run test:indicators
+    options:
+      cache: false
+
   test-market:
     command: bun run test:market
     options:

@@ -6,7 +6,7 @@ The full API below is the accepted target, not a list of currently shipped expor
 The `chart` item implements Root, explicit Pane, all six standard snapshot/incremental series,
 generic CustomSeries, owned primitives/Markers, pane movement/order, dataset generations, time navigation, native appearance presets,
 scoped accessors and lifecycle-aware controller types; see the [README](../../README.md)
-for installation and supported behavior. The optional `chart-indicators` item implements Bollinger Bands and SMA declarations,
+for installation and supported behavior. The optional `chart-indicators` item implements Bollinger Bands, SMA, EMA and RSI declarations,
 pure calculations and visibility requests; see the README for defaults and options.
 Other examples illustrate later slices of
 [spec #17](https://github.com/carere/gurafu/issues/17), which resolves numerical,
@@ -186,7 +186,24 @@ The same visual declaration accepts mutually exclusive precomputed `data` instea
 <Indicators.BollingerBands id="bb" data={suppliedBands()} />;
 ```
 
-No competing calculation runs in supplied-data mode. Snapshot precomputed indicator data is sufficient for the first interface; consumers wanting native incremental drawing can instead compose standard series/primitives. Spec #17 specifies exported result-row types, formulas and defaults. Bollinger Bands and SMA are implemented; EMA and RSI remain later slices.
+No competing calculation runs in supplied-data mode. Snapshot precomputed indicator data is sufficient for the first interface; consumers wanting native incremental drawing can instead compose standard series/primitives. Spec #17 specifies exported result-row types, formulas and defaults. All four calculations and visual declarations are implemented.
+
+EMA is a solid orange 2px price overlay (period 20, full SMA seed). RSI is a solid
+purple 2px line in an explicitly declared native pane (period 14 changes, Wilder
+smoothing). Both accept the same exclusive source/parameters or supplied
+`IndicatorValue<Time>[]` path and native `options` as SMA.
+
+RSI defaults to native linear scaling with a 0–100 autoscale provider and zero
+scale margins. `RSI.priceScaleOptions` accepts upstream
+`DeepPartial<PriceScaleOptions>`; `RSI.options.autoscaleInfoProvider` can override
+the bounds. `RSI.referenceLines` accepts readonly native
+`CreatePriceLineOptions[]` (default dashed purple 30/70, 1px); supply `[]` to
+remove them. Visibility hides both the RSI line and its references. Scale options
+affect the shared native scale in the chosen pane; dedicate a pane/scale to RSI
+unless sharing is intentional. Retained moves reacquire that pane's native scale.
+Native presentation patches retain the series and numerical results. Like
+native options, omitted fields do not reset earlier patches: provide explicit
+reset values.
 
 Indicator identity is chart-local and stable. `visible`, `defaultVisible`, and `onVisibleChange` follow conventional controlled/uncontrolled ownership. Hiding preserves the mounted indicator and its logical identity; removing its declaration disposes it. Volume remains `Chart.HistogramSeries` in an explicit native pane. This contract does not introduce an automatic indicator-owned pane in addition to explicitly declared panes.
 
@@ -463,7 +480,7 @@ One parent-owned signal is passed/closed over by one to four independent chart i
 Separately installable items:
 
 - `chart`: Root, Pane, six typed standard-series components, CustomSeries, owned primitives/Markers, controller/context/types and light/dark chart-option presets. Includes the private state core and explicit runtime dependencies; no optional control UI dependencies.
-- `chart-indicators`: optional visual declarations plus exported pure calculation functions (`calculateBollingerBands`, `calculateSMA`, `calculateEMA`, `calculateRSI`) and their parameter/result types. Depends on `chart` and its shared source helpers. Formula/default/result-row details are resolved in spec #17. The current optional item implements Bollinger Bands and SMA only.
+- `chart-indicators`: optional visual declarations plus exported pure calculation functions (`calculateBollingerBands`, `calculateSMA`, `calculateEMA`, `calculateRSI`) and their parameter/result types. Depends on `chart` and its shared source helpers. Formula/default/result-row details are resolved in spec #17. All four optional calculations and declarations are implemented.
 - `chart-legend`: the ready-to-use legend, public read model helper and customization hooks.
 - `chart-indicator-controls`, `chart-replay-controls`, `chart-date-controls`: independently optional ready-to-use UI widgets.
 

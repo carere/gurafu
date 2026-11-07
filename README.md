@@ -247,7 +247,9 @@ import * as Indicators from "~/components/gurafu/indicators";
 ```
 
 Bands default to period **18**, multiplier **2**, population variance; SMA defaults
-to **20**. Both require a full uninterrupted window. OHLC defaults to close, with
+to **20**. Both require a full uninterrupted window. EMA defaults to 20, seeds with a full
+SMA, then uses alpha 2/(N+1). RSI defaults to 14 changes with Wilder smoothing;
+its first output is at price N+1, and exact flat/rising/falling values are 50/100/0. OHLC defaults to close, with
 open/high/low/close/hl2/hlc3/ohlc4 selectors; single-value inputs use their value.
 Zero is populated, timestamp gaps continue, and explicit whitespace restarts
 warmup. Pure functions preserve one result timestamp per input and do not mutate
@@ -259,7 +261,7 @@ chart-local managed display, including whitespace and live/replay changes; the
 application keeps recoverable history. Both modes retain compatible native lines
 through source/parameter/appearance changes. Nest inside an explicit Pane or set
 `pane` at Root. Logical ids count once per indicator; internal line ids reserve
-`<id>/middle`, `/upper`, `/lower` or `/sma` in the chart's series namespace.
+`<id>/middle`, `/upper`, `/lower` or `/sma`, `/ema`, `/rsi` in the chart's series namespace.
 
 `visible` is authoritative. `chart.requestIndicatorVisibility(id, visible)` emits
 `onVisibleChange` and waits for a controlled value; a request may be declined or
@@ -270,14 +272,20 @@ and disposed controllers fail clearly. No private store is a consumer API.
 Bands draw three solid 1px lines, green middle and raw-value rising blue/falling
 red outer segments. Flats retain direction (initially blue); whitespace breaks
 lines and resets direction. Scale inversion does not reverse colors. SMA is blue
-2px. `SMA.options` accepts native line options. Bands accepts native options under
+2px; EMA is orange 2px and RSI purple 2px. `SMA.options`, `EMA.options`
+and `RSI.options` accept native line options. Bands accepts native options under
 `options.middle/upper/lower`, plus `risingColor`/`fallingColor`; an explicit outer
 `color` selects a uniform color. Logical visibility takes precedence over native
 `options.visible`. Presentation changes do not recalculate numerical values.
 
 The readable [Indicators and panes example](src/components/examples/indicators-panes.tsx)
 shows parameter/price selectors, calculated/supplied Bands, visibility and a native
-volume pane. EMA, RSI, legends and selection widgets remain later spec tickets.
+volume pane, plus configurable EMA/RSI and equivalent supplied snapshots for all
+four indicators. RSI uses an explicit native pane, a linear 0–100 scale and dashed
+30/70 guides. Override `RSI.priceScaleOptions`, native
+`options.autoscaleInfoProvider` and `referenceLines` (native price-line options,
+or `[]` to remove). Visibility also hides guides; shared native scales affect
+other content on that scale. Legends and selection widgets remain later tickets.
 
 ### Acceptance checks
 

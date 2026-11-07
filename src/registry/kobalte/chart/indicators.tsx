@@ -1,19 +1,28 @@
 import {
+  type CreatePriceLineOptions,
+  type DeepPartial,
+  type IPriceLine,
   type LineData,
   type LineSeriesPartialOptions,
   LineStyle,
   LineType,
+  PriceScaleMode,
+  type PriceScaleOptions,
   type WhitespaceData,
 } from "lightweight-charts";
-import { createEffect, createMemo, onCleanup, untrack } from "solid-js";
-import { LineSeries, useIndicatorHost } from "./chart";
+import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
+import { LineSeries, type LineSnapshotController, useIndicatorHost } from "./chart";
 import {
   type BollingerBandsParameters,
   type BollingerBandsValue,
   calculateBollingerBands,
+  calculateEMA,
+  calculateRSI,
   calculateSMA,
+  type EMAParameters,
   type IndicatorValue,
   type PriceRow,
+  type RSIParameters,
   type SMAParameters,
 } from "./indicator-calculations";
 
@@ -32,6 +41,16 @@ type Declaration = {
 export type SMAProps = Declaration &
   Input<IndicatorValue, SMAParameters> & {
     options?: LineSeriesPartialOptions;
+  };
+export type EMAProps = Declaration &
+  Input<IndicatorValue, EMAParameters> & {
+    options?: LineSeriesPartialOptions;
+  };
+export type RSIProps = Declaration &
+  Input<IndicatorValue, RSIParameters> & {
+    options?: LineSeriesPartialOptions;
+    priceScaleOptions?: DeepPartial<PriceScaleOptions>;
+    referenceLines?: readonly CreatePriceLineOptions[];
   };
 export type BollingerBandsProps = Declaration &
   Input<BollingerBandsValue, BollingerBandsParameters> & {
@@ -177,5 +196,122 @@ export function BollingerBands(props: BollingerBandsProps) {
         options={{ ...lineDefaults, color: "#2196F3", ...props.options?.lower, visible: visible() }}
       />
     </>
+  );
+}
+
+// Optional calculations always start from the managed displayed history, just
+// like SMA/Bands: corrections, rewind and context changes retain no future seed.
+export function EMA(props: EMAProps) {
+  const host = useIndicatorHost();
+  const visible = visibility(props, host);
+  const values = createMemo(
+    () =>
+      props.data ??
+      calculateEMA(host.displayed(props.source) as readonly PriceRow[], props.parameters),
+  );
+  const color = createMemo(() => props.options?.color ?? "#FF9800");
+  const rows = createMemo(() => lineRows(values(), color()));
+  return (
+    <LineSeries
+      id={`${props.id}/ema`}
+      pane={props.pane}
+      data={rows()}
+      options={{
+        ...lineDefaults,
+        lineWidth: 2,
+        color: "#FF9800",
+        ...props.options,
+        visible: visible(),
+      }}
+    />
+  );
+}
+
+const rsiRange: NonNullable<LineSeriesPartialOptions["autoscaleInfoProvider"]> = () => ({
+  priceRange: { minValue: 0, maxValue: 100 },
+});
+const rsiReferences: readonly CreatePriceLineOptions[] = [{ price: 30 }, { price: 70 }];
+
+export function RSI(props: RSIProps) {
+  const host = useIndicatorHost();
+  const visible = visibility(props, host);
+  const values = createMemo(
+    () =>
+      props.data ??
+      calculateRSI(host.displayed(props.source) as readonly PriceRow[], props.parameters),
+  );
+  const color = createMemo(() => props.options?.color ?? "#9C27B0");
+  const rows = createMemo(() => lineRows(values(), color()));
+  const [controller, setController] = createSignal<LineSnapshotController>();
+  // Price-line ownership follows the native series lifetime. Presentation
+  // patches keep retained lines and never write data or restart calculation.
+  createEffect(() => {
+    const current = controller();
+    if (!current) return;
+    // Capture while ready; managed accessors deliberately reject after
+    // invalidation, but owned references must still detach during cleanup.
+    const api = untrack(() => current.api);
+    const lines: IPriceLine[] = [];
+    createEffect(() => {
+      const references = props.referenceLines ?? rsiReferences;
+      while (lines.length > references.length) {
+        const line = lines.pop();
+        if (line) api.removePriceLine(line);
+      }
+      references.forEach((reference, index) => {
+        const options = {
+          color: "#9C27B0",
+          lineWidth: 1 as const,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: "",
+          axisLabelColor: "",
+          axisLabelTextColor: "",
+          ...reference,
+          lineVisible: visible() && (reference.lineVisible ?? true),
+        };
+        if (lines[index]) lines[index].applyOptions(options);
+        else lines.push(api.createPriceLine(options));
+      });
+    });
+    onCleanup(() => {
+      for (const line of lines) api.removePriceLine(line);
+    });
+  });
+  createEffect(() => {
+    const current = controller();
+    if (!current?.ready()) return;
+    const options = props.priceScaleOptions;
+    // A native scale handle retains its original pane. Reacquire after the
+    // core's queued pane movement, including when the old pane is removed.
+    props.pane;
+    const apply = () => {
+      if (current.ready())
+        current.api.priceScale().applyOptions({
+          mode: PriceScaleMode.Normal,
+          autoScale: true,
+          scaleMargins: { top: 0, bottom: 0 },
+          ...options,
+        });
+    };
+    apply();
+    const frame = requestAnimationFrame(apply);
+    onCleanup(() => cancelAnimationFrame(frame));
+  });
+  return (
+    <LineSeries
+      id={`${props.id}/rsi`}
+      pane={props.pane}
+      data={rows()}
+      apiRef={setController}
+      options={{
+        ...lineDefaults,
+        lineWidth: 2,
+        color: "#9C27B0",
+        autoscaleInfoProvider: rsiRange,
+        ...props.options,
+        visible: visible(),
+      }}
+    />
   );
 }

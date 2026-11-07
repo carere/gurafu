@@ -36,6 +36,11 @@ export function IndicatorsPanes() {
   const [period, setPeriod] = createSignal(18);
   const [multiplier, setMultiplier] = createSignal(2);
   const [smaPeriod, setSmaPeriod] = createSignal(20);
+  const [emaPeriod, setEmaPeriod] = createSignal(20);
+  const [rsiPeriod, setRsiPeriod] = createSignal(14);
+  const [emaVisible, setEmaVisible] = createSignal(true);
+  const [rsiVisible, setRsiVisible] = createSignal(true);
+  const [suppliedAnalysis, setSuppliedAnalysis] = createSignal(false);
   const [priceInput, setPriceInput] = createSignal<Indicators.PriceInput>("close");
   const [visible, setVisible] = createSignal(true);
   const [supplied, setSupplied] = createSignal(false);
@@ -49,18 +54,37 @@ export function IndicatorsPanes() {
       ? { data: Indicators.calculateBollingerBands(candles, bandsParameters()) }
       : { source: "candles", parameters: bandsParameters() },
   );
+  const smaParameters = () => ({ period: smaPeriod(), priceInput: priceInput() });
+  const emaParameters = () => ({ period: emaPeriod(), priceInput: priceInput() });
+  const rsiParameters = () => ({ period: rsiPeriod(), priceInput: priceInput() });
+  const smaInput = createMemo(() =>
+    suppliedAnalysis()
+      ? { data: Indicators.calculateSMA(candles, smaParameters()) }
+      : { source: "candles", parameters: smaParameters() },
+  );
+  const emaInput = createMemo(() =>
+    suppliedAnalysis()
+      ? { data: Indicators.calculateEMA(candles, emaParameters()) }
+      : { source: "candles", parameters: emaParameters() },
+  );
+  const rsiInput = createMemo(() =>
+    suppliedAnalysis()
+      ? { data: Indicators.calculateRSI(candles, rsiParameters()) }
+      : { source: "candles", parameters: rsiParameters() },
+  );
   return (
     <section aria-labelledby="indicators-heading" class="space-y-4">
       <h2 id="indicators-heading" class="text-2xl font-semibold tracking-tight">
         Indicators and panes
       </h2>
       <p class="max-w-prose text-muted-foreground">
-        Bollinger Bands and a price SMA share the price pane; traded volume has its own native pane.
-        Bands start at 18 observations and two population standard deviations; the SMA starts at 20.
-        A full window is required. Hiding Bands keeps the declaration mounted.
+        Bollinger Bands, price SMA and EMA share the price pane. Traded volume and RSI each have a
+        native pane on the same timeline. Bands default to 18/2; SMA and EMA to 20. RSI needs 14
+        price changes and uses a 0–100 scale with 30/70 guides. Each calculation waits for its full
+        seed. Hiding an indicator keeps it mounted.
       </p>
       <fieldset class="flex flex-wrap items-end gap-4">
-        <legend class="mb-3 font-medium">Price overlay parameters</legend>
+        <legend class="mb-3 font-medium">Indicator parameters</legend>
         <label class="grid gap-1 text-sm">
           Bands period
           <select
@@ -89,6 +113,26 @@ export function IndicatorsPanes() {
             onChange={(e) => setSmaPeriod(Number(e.currentTarget.value))}
           >
             <For each={[3, 10, 20]}>{(n) => <option value={n}>{n}</option>}</For>
+          </select>
+        </label>
+        <label class="grid gap-1 text-sm">
+          EMA period
+          <select
+            class={fieldClass}
+            value={emaPeriod()}
+            onChange={(e) => setEmaPeriod(Number(e.currentTarget.value))}
+          >
+            <For each={[3, 10, 20]}>{(n) => <option value={n}>{n}</option>}</For>
+          </select>
+        </label>
+        <label class="grid gap-1 text-sm">
+          RSI period
+          <select
+            class={fieldClass}
+            value={rsiPeriod()}
+            onChange={(e) => setRsiPeriod(Number(e.currentTarget.value))}
+          >
+            <For each={[3, 7, 14]}>{(n) => <option value={n}>{n}</option>}</For>
           </select>
         </label>
         <label class="grid gap-1 text-sm">
@@ -121,12 +165,36 @@ export function IndicatorsPanes() {
           />
           Supply precomputed Bands
         </label>
+        <label class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={emaVisible()}
+            onChange={(e) => setEmaVisible(e.currentTarget.checked)}
+          />
+          Show EMA
+        </label>
+        <label class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={rsiVisible()}
+            onChange={(e) => setRsiVisible(e.currentTarget.checked)}
+          />
+          Show RSI
+        </label>
+        <label class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={suppliedAnalysis()}
+            onChange={(e) => setSuppliedAnalysis(e.currentTarget.checked)}
+          />
+          Supply precomputed SMA, EMA and RSI
+        </label>
       </div>
       <Chart.Root
         class="w-full"
-        style={{ height: "384px" }}
+        style={{ height: "480px" }}
         role="region"
-        aria-label="Bollinger Bands, price SMA and volume"
+        aria-label="Bollinger Bands, price SMA, EMA, volume and RSI"
         options={{
           ...Chart.lightChartOptions,
           autoSize: true,
@@ -141,10 +209,12 @@ export function IndicatorsPanes() {
             visible={visible()}
             onVisibleChange={setVisible}
           />
-          <Indicators.SMA
-            id="sma"
-            source="candles"
-            parameters={{ period: smaPeriod(), priceInput: priceInput() }}
+          <Indicators.SMA id="sma" {...smaInput()} />
+          <Indicators.EMA
+            id="ema"
+            {...emaInput()}
+            visible={emaVisible()}
+            onVisibleChange={setEmaVisible}
           />
         </Chart.Pane>
         <Chart.Pane id="volume" stretchFactor={0.25}>
@@ -154,10 +224,22 @@ export function IndicatorsPanes() {
             options={{ priceFormat: { type: "volume" } }}
           />
         </Chart.Pane>
+        <Chart.Pane id="rsi" stretchFactor={0.4}>
+          <Indicators.RSI
+            id="rsi"
+            {...rsiInput()}
+            visible={rsiVisible()}
+            onVisibleChange={setRsiVisible}
+          />
+        </Chart.Pane>
       </Chart.Root>
       <p role="status" class="text-sm text-muted-foreground">
         {supplied() ? "Application-calculated snapshot" : "Chart-local displayed source"} · Bands{" "}
         {period()}/{multiplier()} · SMA {smaPeriod()} · {priceInput().toUpperCase()}
+      </p>
+      <p class="text-sm text-muted-foreground" aria-live="polite">
+        EMA {emaPeriod()} · RSI {rsiPeriod()} · SMA/EMA/RSI:{" "}
+        {suppliedAnalysis() ? "Application-calculated snapshot" : "Chart-local displayed source"}
       </p>
     </section>
   );
