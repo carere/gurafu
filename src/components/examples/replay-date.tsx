@@ -55,6 +55,7 @@ export function ReplayDateNavigation(props: {
         }
         if (target.time === "latest") controller.goToLatest();
         else controller.goToTime(target.time);
+        replay.navigated(target.id);
       });
     });
     onCleanup(() => {
