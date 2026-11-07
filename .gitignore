@@ -13,3 +13,5 @@ public/r/
 .DS_Store
 .env*
 !.env.example
+test-results/
+playwright-report/

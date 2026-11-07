@@ -28,3 +28,5 @@ jobs:
           auto-install: true
       - run: bun install --frozen-lockfile
       - run: moon run gurafu:check gurafu:tsc gurafu:knip gurafu:build
+      - run: bunx playwright install --with-deps chromium
+      - run: moon run gurafu:test-solux gurafu:test-chart

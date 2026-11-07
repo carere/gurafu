@@ -1,11 +1,17 @@
 {
   "$schema": "https://unpkg.com/knip/schema.json",
+  "entry": [
+    "src/registry/kobalte/chart/chart.tsx",
+    "src/registry/kobalte/chart/indicators.tsx",
+    "src/registry/kobalte/chart/chart-legend.tsx",
+    "src/registry/kobalte/chart/chart-indicator-controls.tsx",
+    "src/registry/kobalte/chart/chart-replay-controls.tsx",
+    "src/registry/kobalte/chart/chart-date-controls.tsx"
+  ],
   "project": ["src/**/*.{ts,tsx,css}", "*.ts"],
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
     // Executed by shared Moon tasks under .moon/tasks.
-    "@biomejs/biome",
-    // Reserved for the chart implementation, whose API is designed separately.
-    "lightweight-charts"
+    "@biomejs/biome"
   ]
 }

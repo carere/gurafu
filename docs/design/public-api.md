@@ -2,7 +2,24 @@
 
 Accepted interface examples from [Choose Gurafu’s public API through concrete usage sketches](https://github.com/carere/gurafu/issues/10#issuecomment-6697354760). That resolved ticket is the canonical decision record; these notes preserve the approved usage and type relationships for implementation and later wayfinding.
 
-The exports below are planned, not shipped components. Code blocks illustrate the design rather than executable examples or typechecked declarations. Feature, state and lifecycle decisions remain authoritative in the [wayfinding map](https://github.com/carere/gurafu/issues/3).
+The full API below is the accepted target, not a list of currently shipped exports.
+The `chart` item implements Root, explicit Pane, all six standard snapshot/incremental series,
+generic CustomSeries, owned primitives/Markers, pane movement/order, dataset generations, time navigation, native appearance presets,
+scoped accessors and lifecycle-aware controller types; see the [README](../../README.md)
+for installation and supported behavior. The optional `chart-indicators` item implements Bollinger Bands, SMA, EMA and RSI declarations,
+pure calculations and visibility requests; see the README for defaults and options.
+The optional `chart-legend` and `chart-indicator-controls` items provide exact-time
+readonly presentation and consumer-owned selection. Root also supports local
+crosshair commands and opt-in per-instance Solux Redux DevTools inspection.
+The separate `chart-replay-controls` and `chart-date-controls` items provide
+request-only standalone playback and UTC calendar controls. The website owns
+clock, cutoff, history loading and coherent live restoration.
+All six website destinations are implemented as direct public compositions in the
+[gallery](../../src/components/examples/gallery.tsx). See the
+[delivery audit](../verification/composable-charts.md) for executable verification,
+observed browser results and limits. The SPA-first amendment in
+[spec #17](https://github.com/carere/gurafu/issues/17) supersedes the earlier
+SSR/hydration proposal; dedicated component SSR is not an acceptance guarantee.
 
 ## Composition
 
@@ -110,7 +127,7 @@ Chart-local commands live on the controller; native option/data/event types rema
 
 Optional feature components use Gurafu-owned `useChart`, `usePane`, and `useSeries` context helpers. These return readiness accessors rather than pretending DOM mount implies a native handle is ready. A helper outside its required scope fails clearly. Context never exposes the private Solux store or shadows an application provider.
 
-Native resources are created only after browser mounting. Ref availability does not promise data or layout coordinates. Cleanup clears lifecycle-aware refs before later consumer effects can use disposed resources. Actual SSR/import/hydration checks remain implementation acceptance work.
+Native resources are created only after browser mounting. Ref availability does not promise data or layout coordinates. Cleanup clears lifecycle-aware refs before later consumer effects can use disposed resources. Browser SPA lifetimes and the website production build are verified by the delivery gates; dedicated component SSR/hydration is outside scope.
 
 ### Dataset contexts
 
@@ -169,7 +186,7 @@ import * as Indicators from "~/components/gurafu/indicators";
 </Chart.Root>;
 ```
 
-`source` identifies a chart-local price series, while nesting or `pane` selects the output pane. Calculated indicators consume only their source's supplied displayed data, including incremental replacements/updates and replay cutoff. Their parameters are typed per indicator; defaults/formulas/price-input rules belong to the still-open numerical-compatibility decision.
+`source` identifies a chart-local price series, while nesting or `pane` selects the output pane. Calculated indicators consume only their source's supplied displayed data, including incremental replacements/updates and replay cutoff. Their parameters are typed per indicator; defaults/formulas/price-input rules are resolved in spec #17.
 
 The same visual declaration accepts mutually exclusive precomputed `data` instead of `source`, following exact-time/missing-value rules:
 
@@ -177,7 +194,24 @@ The same visual declaration accepts mutually exclusive precomputed `data` instea
 <Indicators.BollingerBands id="bb" data={suppliedBands()} />;
 ```
 
-No competing calculation runs in supplied-data mode. Snapshot precomputed indicator data is sufficient for the first interface; consumers wanting native incremental drawing can instead compose standard series/primitives. The numerical-compatibility decision will specify the exported result-row types before implementation; examples here do not invent formulas or defaults.
+No competing calculation runs in supplied-data mode. Snapshot precomputed indicator data is sufficient for the first interface; consumers wanting native incremental drawing can instead compose standard series/primitives. Spec #17 specifies exported result-row types, formulas and defaults. All four calculations and visual declarations are implemented.
+
+EMA is a solid orange 2px price overlay (period 20, full SMA seed). RSI is a solid
+purple 2px line in an explicitly declared native pane (period 14 changes, Wilder
+smoothing). Both accept the same exclusive source/parameters or supplied
+`IndicatorValue<Time>[]` path and native `options` as SMA.
+
+RSI defaults to native linear scaling with a 0–100 autoscale provider and zero
+scale margins. `RSI.priceScaleOptions` accepts upstream
+`DeepPartial<PriceScaleOptions>`; `RSI.options.autoscaleInfoProvider` can override
+the bounds. `RSI.referenceLines` accepts readonly native
+`CreatePriceLineOptions[]` (default dashed purple 30/70, 1px); supply `[]` to
+remove them. Visibility hides both the RSI line and its references. Scale options
+affect the shared native scale in the chosen pane; dedicate a pane/scale to RSI
+unless sharing is intentional. Retained moves reacquire that pane's native scale.
+Native presentation patches retain the series and numerical results. Like
+native options, omitted fields do not reset earlier patches: provide explicit
+reset values.
 
 Indicator identity is chart-local and stable. `visible`, `defaultVisible`, and `onVisibleChange` follow conventional controlled/uncontrolled ownership. Hiding preserves the mounted indicator and its logical identity; removing its declaration disposes it. Volume remains `Chart.HistogramSeries` in an explicit native pane. This contract does not introduce an automatic indicator-owned pane in addition to explicitly declared panes.
 
@@ -447,20 +481,20 @@ function TimeframeChart(props: {
 }
 ```
 
-One parent-owned signal is passed/closed over by one to four independent chart instances. Each has a stable consumer sender identity and its own dataset key/resources/private chart store. The parent clears shared time on symbol/assignment changes as appropriate. Native programmatic positioning does not become another user-pointer intent; retain focus/sender/equality guards. Source leave updates local pointer focus and native local legend state; it does not broadcast a clear. Missing timestamps retain native positioning limitations. Cleanup of each chart remains independent; neither chart subscribes to another chart's private store. Runtime verification of the exact cross-timeframe visual result remains in the website acceptance ticket.
+One parent-owned signal is passed/closed over by one to four independent chart instances. Each has a stable consumer sender identity and its own dataset key/resources/private chart store. The parent clears shared time on symbol/assignment changes as appropriate. Native programmatic positioning does not become another user-pointer intent; retain focus/sender/equality guards. Source leave updates local pointer focus and native local legend state; it does not broadcast a clear. Missing timestamps retain native positioning limitations. Cleanup of each chart remains independent; neither chart subscribes to another chart's private store. The [Independent charts example](../../src/components/examples/independent-charts.tsx) implements this coordination through the website service port. Its installed Chromium fixture observes native 5.2.1 placing missing minute 00:31 at the next five-minute bar (00:35), while the consumer command and exact-time legend retain 00:31. Native magnet behavior can also choose a displayed series price despite the command's price zero. This is a native placement limitation, not a cross-timeframe alignment guarantee.
 
 ### Registry items and imports
 
 Separately installable items:
 
 - `chart`: Root, Pane, six typed standard-series components, CustomSeries, owned primitives/Markers, controller/context/types and light/dark chart-option presets. Includes the private state core and explicit runtime dependencies; no optional control UI dependencies.
-- `chart-indicators`: optional visual declarations plus exported pure calculation functions (`calculateBollingerBands`, `calculateSMA`, `calculateEMA`, `calculateRSI`) and their parameter/result types. Depends on `chart` and its shared source helpers. Formula/default/result-row details are resolved in the numerical-compatibility ticket.
+- `chart-indicators`: optional visual declarations plus exported pure calculation functions (`calculateBollingerBands`, `calculateSMA`, `calculateEMA`, `calculateRSI`) and their parameter/result types. Depends on `chart` and its shared source helpers. Formula/default/result-row details are resolved in spec #17. All four optional calculations and declarations are implemented.
 - `chart-legend`: the ready-to-use legend, public read model helper and customization hooks.
 - `chart-indicator-controls`, `chart-replay-controls`, `chart-date-controls`: independently optional ready-to-use UI widgets.
 
-Registry item names identify installation; they need not all become one module filename. These examples use installed local imports under `~/components/gurafu/`; actual installation resolves the consumer's configured aliases. Item dependencies install shared helpers and required Zaidan UI sources only where used. No `@gurafu/*` namespace/hosted endpoint is claimed to exist yet; registering/publishing the catalog is implementation work. No giant mandatory barrel import should drag website/framework/control modules into a basic chart.
+Registry item names identify installation; they need not all become one module filename. These examples use installed local imports under `~/components/gurafu/`; actual installation resolves the consumer's configured aliases. Item dependencies install shared helpers and required Zaidan UI sources only where used. No `@gurafu/*` namespace/hosted endpoint is claimed to exist yet; generated local installation is reproducible with `bun scripts/local-registry.ts`; upstream publication remains separate. No giant mandatory barrel import should drag website/framework/control modules into a basic chart.
 
-Retain the pinned Lightweight Charts 5.2.1. Adopt only the verified newly published/pinned Solux v4 release required by the state-ownership resolution; its version remains a release prerequisite, not an invented number. Core registry dependencies include whatever runtime/transitive declaration packages the verified release actually requires. Consumers need not write Solux/RxJS application code or provide a global store.
+Core pins Lightweight Charts **5.2.1**, published **@carere/solux 4.1.0** and **Solid 1.9.18**. The published package gate and clean strict-declaration consumers verify the required opt-in/disposal/detached-snapshot guarantees without a local Solux substitution. Consumers need not write Solux/RxJS application code or provide a global store.
 
 Per-chart debugging uses `devtools={false | { name: string }}`, disabled by default. Explicit names label the existing Redux DevTools integration, and an automatic unique identity prevents same-name chart connections colliding. Use supported browser-only initialization and disposal. Application-controlled state remains in the application; no automatic shared timeline or deterministic effect/data replay is promised.
 
@@ -482,17 +516,26 @@ Use the same complete chart and series appearance option types that TradingView 
 
 Root owns the stable outer container and inner native surface described above. `class`/ordinary Root DOM props style the outer shell; `containerProps` styles/observes the inner chart surface. Consumer dimensions and native autosizing govern layout. Empty/loading/error presentation can be ordinary child HTML; loading/error inputs do not implicitly fetch or substitute datasets. Optional UI uses keyboard-accessible Zaidan/Kobalte conventions, explicit labels and formatting/localization hooks; no new visual world is being designed in this API decision.
 
-### Server import, rendering and hydration
+### Browser delivery and website rendering
 
-- Server import may evaluate types/component definitions/pure helpers but must not create browser chart resources, global live model graphs or DevTools connections.
-- Server rendering produces stable outer/inner shells and appropriate ordinary optional UI, with fresh isolated per-request model state. It does not serialize native handles/canvases.
-- Hydration reuses the shell. Create native chart resources after browser mount, reconcile desired declarations/data and expose controllers at their actual readiness stage. Zero-size/hidden surfaces still have native layout limitations.
-- Implementation must verify framework compatibility on installed source in both the current Solid/TanStack consumer and a clean non-TanStack Solid SSR consumer. No route imports, server-only code, hosted data dependencies, or global application provider are required by distributed source.
-- Browser behavior, cleanup, declarations with `skipLibCheck: false`, fresh-store/request isolation, runtime dependency installation, Solux published-version guarantees and negative custom-type examples remain implementation acceptance work. These design notes do not establish browser, production or clean-consumer compile verification.
+Native resources and opt-in DevTools connections are created after browser mount.
+The website guards the gallery with `ClientOnly`, keeping market requests out of
+server rendering and route preload. Its production client/server build remains a
+required gate. Dedicated component SSR/server-render/hydration support is outside
+the accepted SPA-first scope; no such guarantee follows from that website build.
 
-## Remaining specification and verification
+Generated source is installed and strictly compiled in clean Solid Vite SPA
+consumers, including a core-only consumer and an optional assembled consumer
+without Start/Router or a global application store. Website example fixtures add
+Effect/Query only after registry dependency boundaries have been checked. See the
+[delivery audit](../verification/composable-charts.md) for the commands and coverage.
 
-- [Define indicator numerical and visual compatibility with Ashiso](https://github.com/carere/gurafu/issues/12) owns numerical/visual defaults, parameter fields and result-row definitions.
-- [Specify website examples and implementation acceptance criteria](https://github.com/carere/gurafu/issues/11) owns exact website examples and executable acceptance coverage.
+## Specification and verification
 
-These notes document the accepted interface. They do not implement the chart or establish benchmark, browser or clean-consumer typecheck results. The implementation must verify the signatures, lifecycle behavior and installed-source compatibility described above before claiming those guarantees.
+[Spec #17](https://github.com/carere/gurafu/issues/17) resolves the six examples,
+numerical defaults, lifecycle/authority boundaries and acceptance requirements.
+The exported implementation, strict positive/negative installed type fixtures and
+executable browser/numerical gates now establish those supported behaviors.
+These usage sketches remain explanatory; use the installed exports as the type
+source of truth. No benchmark, production deployment, upstream publication,
+cross-browser certification or deterministic cross-store replay is claimed.
