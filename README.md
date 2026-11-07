@@ -115,7 +115,8 @@ served at `/r/kobalte/registry.json`. Generated registry files are ignored by Gi
 and rebuilt before development and production builds.
 
 The `chart` item installs `Root`, `Pane`, snapshot/incremental `CandlestickSeries`, `BarSeries`,
-`LineSeries`, `AreaSeries`, `BaselineSeries` and `HistogramSeries`, scoped
+`LineSeries`, `AreaSeries`, `BaselineSeries` and `HistogramSeries`, generic `CustomSeries`,
+owned `SeriesPrimitive` / `PanePrimitive` factories and retained `Markers`, scoped
 `useChart` / `usePane` / `useSeries` accessors, matching native controller/prop
 types, and plain `lightChartOptions` / `darkChartOptions` presets.
 It pins Lightweight Charts **5.2.1**, published **@carere/solux 4.1.0**, and Solid
@@ -259,3 +260,31 @@ implementations. Consumers should be able to install the components into other
 Solid applications without adopting TanStack Start or using Gurafu's hosted
 services. Provider integrations and credentials will be added with the data
 integration work.
+
+### Owned extensions
+
+`CustomSeries` uses an owned `create` view factory and the same exclusive `data` /
+`defaultData` modes as standard series. Custom data, full options and partial-options
+types continue through its native handle. Time is the ordinary upstream `Time` union.
+Nest `SeriesPrimitive` and `Markers` inside their series, and `PanePrimitive` inside
+its native pane. Each factory runs once per owned native lifetime. Data/options
+patches, compatible moves and dataset changes retain those instances. Empty data
+retains them too; removal/reintroduction creates new instances.
+
+Each extension supports `apiRef` with a managed `ready()` / `.api` controller;
+custom-series refs also expose the matching data-mode controller. Replacing a ref
+clears the old callback before supplying the retained controller to the new one.
+`useSeries<CustomIncrementalController<MyData, MyOptions>>()` captures a known
+custom scope; `apiRef` infers those types directly from the view factory.
+
+Gurafu invalidates managed refs, stops its effects and explicitly detaches owned
+plugins/primitives and destroys custom views while native handles still exist.
+`onDispose(instance)` is additional consumer cleanup; do not detach/destroy the
+instance again. Consumer-owned subscriptions still need consumer cleanup.
+Series are removed before emptied native panes and the chart. Use managed
+composition for populated-pane removal. Direct native populated-pane removal is
+outside this contract at the pinned version.
+
+The **Extensions and lifecycle** example demonstrates nonzero-pane custom rendering,
+owned annotation/watermark/markers, empty versus removed state, retained movement
+and pane ordering, and moving a series before removing its old native pane.

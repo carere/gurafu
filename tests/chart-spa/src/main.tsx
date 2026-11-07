@@ -7,6 +7,8 @@ import { Basics } from "./basics-example";
 import { Composition19 } from "./composition-19";
 import { mountDataFixture } from "./data-fixture";
 import { DataHistory } from "./data-history";
+import { Extensions27 } from "./extensions-27";
+import { ExtensionsLifecycle } from "./extensions-example";
 import { Lifetimes19 } from "./lifetimes-19";
 import { NativePanes } from "./native-panes-example";
 import { Panes19 } from "./panes-19";
@@ -184,7 +186,9 @@ function Composition() {
     </Show>
   );
 }
-if (location.search.includes("history")) render(() => <DataHistory />, host);
+if (location.search.includes("extensions-example")) render(() => <ExtensionsLifecycle />, host);
+else if (location.search.includes("extensions27")) render(() => <Extensions27 />, host);
+else if (location.search.includes("history")) render(() => <DataHistory />, host);
 else if (location.search.includes("data")) mountDataFixture(host);
 else
   render(

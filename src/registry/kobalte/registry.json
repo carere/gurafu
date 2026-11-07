@@ -7,7 +7,7 @@
       "name": "chart",
       "type": "registry:component",
       "title": "Chart",
-      "description": "Solid Root, native panes, six typed snapshot/incremental series, retained composition, dataset generations, navigation and native appearance presets.",
+      "description": "Solid Root, native panes, six standard and generic custom snapshot/incremental series, owned primitives/markers, retained composition, dataset generations, navigation and native appearance presets.",
       "dependencies": ["lightweight-charts@5.2.1", "@carere/solux@4.1.0", "solid-js@1.9.18"],
       "files": [
         {

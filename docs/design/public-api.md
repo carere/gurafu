@@ -4,7 +4,7 @@ Accepted interface examples from [Choose Gurafu’s public API through concrete 
 
 The full API below is the accepted target, not a list of currently shipped exports.
 The `chart` item implements Root, explicit Pane, all six standard snapshot/incremental series,
-pane movement/order, dataset generations, time navigation, native appearance presets,
+generic CustomSeries, owned primitives/Markers, pane movement/order, dataset generations, time navigation, native appearance presets,
 scoped accessors and lifecycle-aware controller types; see the [README](../../README.md)
 for installation and supported behavior. Other examples illustrate later slices of
 [spec #17](https://github.com/carere/gurafu/issues/17), which resolves numerical,

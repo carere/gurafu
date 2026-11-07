@@ -2,12 +2,19 @@ import { configureStore, createEvent, createSlice } from "@carere/solux";
 import {
   type ChartOptions,
   ColorType,
+  type CustomData,
+  type CustomSeriesOptions,
   createChart,
+  createSeriesMarkers,
   type DataChangedHandler,
   type DeepPartial,
   type IChartApi,
+  type ICustomSeriesPaneView,
   type IPaneApi,
+  type IPanePrimitive,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type ISeriesPrimitive,
   type LogicalRangeChangeEventHandler,
   type MouseEventHandler,
   AreaSeries as NativeAreaSeries,
@@ -18,10 +25,14 @@ import {
   LineSeries as NativeLineSeries,
   type SeriesDataItemTypeMap,
   type SeriesDefinition,
+  type SeriesMarker,
+  type SeriesMarkersOptions,
+  type SeriesPartialOptions,
   type SeriesPartialOptionsMap,
   type SizeChangeEventHandler,
   type Time,
   type TimeRangeChangeEventHandler,
+  type WhitespaceData,
 } from "lightweight-charts";
 import {
   type Accessor,
@@ -130,6 +141,45 @@ export type BarSeriesProps = StandardSeriesProps<"Bar">;
 export type BaselineSeriesProps = StandardSeriesProps<"Baseline">;
 export type HistogramSeriesProps = StandardSeriesProps<"Histogram">;
 
+export type CustomNativeApi<
+  D extends CustomData<Time>,
+  O extends CustomSeriesOptions,
+  P extends SeriesPartialOptions<O> = SeriesPartialOptions<O>,
+> = ISeriesApi<"Custom", Time, D | WhitespaceData<Time>, O, P>;
+export type CustomSnapshotController<
+  D extends CustomData<Time>,
+  O extends CustomSeriesOptions,
+  P extends SeriesPartialOptions<O> = SeriesPartialOptions<O>,
+> = SnapshotSeriesController<CustomNativeApi<D, O, P>>;
+export type CustomIncrementalController<
+  D extends CustomData<Time>,
+  O extends CustomSeriesOptions,
+  P extends SeriesPartialOptions<O> = SeriesPartialOptions<O>,
+> = IncrementalSeriesController<CustomNativeApi<D, O, P>, D | WhitespaceData<Time>>;
+export type CustomController<
+  D extends CustomData<Time>,
+  O extends CustomSeriesOptions,
+  P extends SeriesPartialOptions<O> = SeriesPartialOptions<O>,
+> = CustomSnapshotController<D, O, P> | CustomIncrementalController<D, O, P>;
+export type CustomSeriesProps<
+  D extends CustomData<Time>,
+  O extends CustomSeriesOptions,
+  P extends SeriesPartialOptions<O> = SeriesPartialOptions<O>,
+> = {
+  id: string;
+  pane?: string;
+  children?: JSX.Element;
+  create: () => ICustomSeriesPaneView<Time, D, O>;
+  onDispose?: (view: ICustomSeriesPaneView<Time, D, O>) => void;
+  options?: P;
+  onDataChange?: DataChangedHandler;
+} & SeriesDataProps<CustomNativeApi<D, O, P>, NoInfer<D> | WhitespaceData<Time>>;
+
+// Internal ownership registration, shared by native hosts and their extensions.
+type ExtensionOwner = Set<() => void>;
+function disposeExtensions(extensions: ExtensionOwner) {
+  for (const dispose of [...extensions]) dispose();
+}
 type ChartScope = {
   data: Accessor<DataCoordinator | undefined>;
   controller: Accessor<ChartController | undefined>;
@@ -141,7 +191,11 @@ type ChartScope = {
   schedule: () => void;
 };
 const ChartContext = createContext<ChartScope>();
-type PaneScope = { controller: Accessor<PaneController | undefined>; id: Accessor<string> };
+type PaneScope = {
+  controller: Accessor<PaneController | undefined>;
+  id: Accessor<string>;
+  extensions: ExtensionOwner;
+};
 type PaneDeclaration = {
   id: string;
   marker: Comment | undefined;
@@ -155,7 +209,10 @@ type SeriesDeclaration = {
   marker: Comment | undefined;
   active: boolean;
   target: string;
-  api?: ISeriesApi<StandardSeriesType, Time>;
+  api?: Pick<
+    ISeriesApi<StandardSeriesType, Time>,
+    "getPane" | "moveToPane" | "seriesOrder" | "setSeriesOrder"
+  >;
   create: (chart: IChartApi, pane: IPaneApi<Time>) => void;
   dispose: () => void;
 };
@@ -169,7 +226,11 @@ function declarationOrder(a: { marker?: Comment }, b: { marker?: Comment }) {
       : 0;
 }
 const PaneContext = createContext<PaneScope>();
-const SeriesContext = createContext<Accessor<StandardController<StandardSeriesType> | undefined>>();
+type SeriesHost = Pick<ISeriesApi<StandardSeriesType, Time>, "attachPrimitive" | "detachPrimitive">;
+const SeriesContext = createContext<{
+  controller: Accessor<ResourceController<SeriesHost> | undefined>;
+  extensions: ExtensionOwner;
+}>();
 function resource<A>(api: A, ready: Accessor<boolean>): ResourceController<A> {
   return {
     get api() {
@@ -189,8 +250,11 @@ export function useChart(): Accessor<ChartController | undefined> {
 export function usePane(): Accessor<PaneController | undefined> {
   return required(useContext(PaneContext), "usePane").controller;
 }
-export function useSeries(): Accessor<StandardController<StandardSeriesType> | undefined> {
-  return required(useContext(SeriesContext), "useSeries");
+/** Supply the known controller type when capturing a custom-series scope. */
+export function useSeries<
+  C extends SnapshotSeriesController<unknown> = StandardController<StandardSeriesType>,
+>(): Accessor<C | undefined> {
+  return required(useContext(SeriesContext), "useSeries").controller as Accessor<C | undefined>;
 }
 
 // Clear refs synchronously before native removal, also when the callback changes.
@@ -472,6 +536,7 @@ export function Root(props: RootProps) {
 }
 
 export function Pane(props: PaneProps) {
+  const extensions: ExtensionOwner = new Set();
   const scope = required(useContext(ChartContext), "Pane");
   const marker = isServer ? undefined : document.createComment("Chart.Pane");
   const [controller, setController] = createSignal<PaneController>();
@@ -480,8 +545,12 @@ export function Pane(props: PaneProps) {
     const id = props.id;
     let setLive: ((value: boolean) => void) | undefined;
     let managed: PaneController | undefined;
+    let invalidated = false;
     const invalidate = () => {
+      if (invalidated) return;
+      invalidated = true;
       setLive?.(false);
+      disposeExtensions(extensions);
       // An id change can create the replacement before removing this pane.
       // Never clear the replacement's ref/controller while releasing the old.
       if (untrack(controller) === managed) {
@@ -545,24 +614,51 @@ export function Pane(props: PaneProps) {
     onCleanup(() => cancelAnimationFrame(frame));
   });
   return (
-    <PaneContext.Provider value={{ controller, id: () => props.id }}>
+    <PaneContext.Provider value={{ controller, id: () => props.id, extensions }}>
       {marker}
       {props.children}
     </PaneContext.Provider>
   );
 }
 
-function StandardSeries<K extends StandardSeriesType>(
-  props: StandardSeriesProps<K>,
-  definition: SeriesDefinition<K>,
+type ManagedNative<D, O> = SeriesHost & {
+  getPane(): IPaneApi<Time>;
+  moveToPane(index: number): void;
+  seriesOrder(): number;
+  setSeriesOrder(index: number): void;
+  setData(rows: D[]): void;
+  update(row: D, historical?: boolean): void;
+  pop(count: number): D[];
+  subscribeDataChanged(handler: DataChangedHandler): void;
+  unsubscribeDataChanged(handler: DataChangedHandler): void;
+  applyOptions(options: O): void;
+};
+function ManagedSeries<D extends { time: Time }, O, A extends ManagedNative<D, O>>(
+  props: {
+    id: string;
+    pane?: string;
+    children?: JSX.Element;
+    options?: O;
+    onDataChange?: DataChangedHandler;
+  } & SeriesDataProps<A, D>,
+  create: (
+    chart: IChartApi,
+    pane: IPaneApi<Time>,
+  ) => { api: A; populated?: (row: D) => boolean; dispose?: () => void },
 ) {
-  const scope = required(useContext(ChartContext), definition.type);
+  const scope = required(useContext(ChartContext), "Series");
+  const extensions: ExtensionOwner = new Set();
   const paneScope = useContext(PaneContext);
-  const marker = isServer ? undefined : document.createComment(`Chart.${definition.type}Series`);
+  const marker = isServer ? undefined : document.createComment("Chart.Series");
   const owner = getOwner();
-  const [controller, setController] = createSignal<StandardController<K>>();
+  const [controller, setController] = createSignal<
+    SnapshotSeriesController<A> | IncrementalSeriesController<A, D>
+  >();
   const clearRef = bindRef(
-    () => props.apiRef as ApiRef<StandardController<K>> | undefined,
+    () =>
+      props.apiRef as
+        | ApiRef<SnapshotSeriesController<A> | IncrementalSeriesController<A, D>>
+        | undefined,
     controller,
   );
   const snapshot = props.data !== undefined;
@@ -577,19 +673,17 @@ function StandardSeries<K extends StandardSeriesType>(
       target: "",
       create(chartApi, target) {
         createRoot((disposeRoot) => {
-          const api = chartApi.addSeries(
-            definition,
-            untrack(() => props.options),
-            target.paneIndex(),
-          );
+          const owned = untrack(() => create(chartApi, target));
+          const api = owned.api;
           declaration.api = api;
           let active = true;
           const data = createManagedData({
             chart: chartApi,
             api,
-            coordinator: required(untrack(scope.data), "StandardSeries data"),
+            coordinator: required(untrack(scope.data), "Series data"),
             id,
             snapshot,
+            populated: owned.populated,
             data: () => props.data,
             defaultData: () => props.defaultData,
             changed: () => props.onDataChange,
@@ -613,6 +707,8 @@ function StandardSeries<K extends StandardSeriesType>(
             active = false;
             disposeRoot();
             data.dispose();
+            disposeExtensions(extensions);
+            owned.dispose?.();
             if (untrack(controller) === managed) {
               clearRef();
               setController(undefined);
@@ -622,7 +718,9 @@ function StandardSeries<K extends StandardSeriesType>(
             release = () => {};
             invalidate();
             declaration.api = undefined;
-            scope.withoutEvents(() => chartApi.removeSeries(api));
+            scope.withoutEvents(() =>
+              chartApi.removeSeries(api as unknown as ISeriesApi<StandardSeriesType, Time>),
+            );
           };
         }, owner);
       },
@@ -646,12 +744,65 @@ function StandardSeries<K extends StandardSeriesType>(
     });
   });
   return (
-    <SeriesContext.Provider value={controller}>
+    <SeriesContext.Provider value={{ controller, extensions }}>
       {marker}
       {props.children}
     </SeriesContext.Provider>
   );
 }
+
+function StandardSeries<K extends StandardSeriesType>(
+  props: StandardSeriesProps<K>,
+  definition: SeriesDefinition<K>,
+) {
+  return ManagedSeries<
+    SeriesDataItemTypeMap<Time>[K],
+    SeriesPartialOptionsMap[K],
+    ISeriesApi<K, Time>
+  >(props, (chart, pane) => ({
+    api: chart.addSeries(definition, props.options, pane.paneIndex()),
+  }));
+}
+type CustomComponent = {
+  <
+    D extends CustomData<Time>,
+    O extends CustomSeriesOptions,
+    P extends SeriesPartialOptions<O> = SeriesPartialOptions<O>,
+  >(
+    props: Extract<CustomSeriesProps<D, O, P>, { data: readonly unknown[] }>,
+  ): JSX.Element;
+  <
+    D extends CustomData<Time>,
+    O extends CustomSeriesOptions,
+    P extends SeriesPartialOptions<O> = SeriesPartialOptions<O>,
+  >(
+    props: Extract<CustomSeriesProps<D, O, P>, { data?: never }>,
+  ): JSX.Element;
+};
+export const CustomSeries: CustomComponent = <
+  D extends CustomData<Time>,
+  O extends CustomSeriesOptions,
+  P extends SeriesPartialOptions<O> = SeriesPartialOptions<O>,
+>(
+  props: CustomSeriesProps<D, O, P>,
+) => {
+  return ManagedSeries<D | WhitespaceData<Time>, P, CustomNativeApi<D, O, P>>(
+    props,
+    (chart, pane) => {
+      const view = props.create();
+      return {
+        // Pinned pane.addCustomSeries incorrectly forwards pane index zero.
+        api: chart.addCustomSeries<D, O, P>(view, props.options, pane.paneIndex()),
+        populated: (row) => !view.isWhitespace(row),
+        dispose: () => {
+          // 5.2.1 removeSeries does not call the custom view's destroy hook.
+          view.destroy?.();
+          untrack(() => props.onDispose?.(view));
+        },
+      };
+    },
+  );
+};
 
 type StandardComponent<K extends StandardSeriesType> = {
   (props: Extract<StandardSeriesProps<K>, { data: readonly unknown[] }>): JSX.Element;
@@ -671,6 +822,97 @@ export const BaselineSeries: StandardComponent<"Baseline"> = (props: BaselineSer
 export const HistogramSeries: StandardComponent<"Histogram"> = (props: HistogramSeriesProps) =>
   StandardSeries(props, NativeHistogramSeries);
 
+export type ExtensionController<A> = ResourceController<A>;
+export type PrimitiveProps<A> = {
+  create: () => A;
+  apiRef?: ApiRef<ExtensionController<A>>;
+  onDispose?: (instance: A) => void;
+};
+export type MarkersProps = {
+  data: readonly SeriesMarker<Time>[];
+  options?: DeepPartial<SeriesMarkersOptions>;
+  apiRef?: ApiRef<ExtensionController<ISeriesMarkersPluginApi<Time>>>;
+  onDispose?: (instance: ISeriesMarkersPluginApi<Time>) => void;
+};
+function OwnedExtension<H, A>(
+  props: { apiRef?: ApiRef<ExtensionController<A>>; onDispose?: (instance: A) => void },
+  host: { controller: Accessor<ResourceController<H> | undefined>; extensions: ExtensionOwner },
+  attach: (api: H) => { instance: A; detach: () => void; update?: () => void },
+) {
+  const [controller, setController] = createSignal<ExtensionController<A>>();
+  const clearRef = bindRef(() => props.apiRef, controller);
+  const owner = getOwner();
+  createEffect(() => {
+    const parent = host.controller();
+    if (!parent) return;
+    const dispose = untrack(() =>
+      createRoot((disposeRoot) => {
+        const owned = attach(parent.api);
+        const [live, setLive] = createSignal(true);
+        const managed = resource(owned.instance, live);
+        setController(managed);
+        let active = true;
+        const dispose = () => {
+          if (!active) return;
+          active = false;
+          setLive(false);
+          clearRef();
+          setController(undefined);
+          disposeRoot();
+          host.extensions.delete(dispose);
+          owned.detach();
+          untrack(() => props.onDispose?.(owned.instance));
+        };
+        host.extensions.add(dispose);
+        if (owned.update) createEffect(owned.update);
+        // Register with the declaration owner as well as the native host. Both
+        // paths share one guard; native detach is deliberately never repeated.
+        return dispose;
+      }, owner),
+    );
+    onCleanup(dispose);
+  });
+  return null;
+}
+export function SeriesPrimitive<A extends ISeriesPrimitive<Time>>(props: PrimitiveProps<A>) {
+  const host = required(useContext(SeriesContext), "SeriesPrimitive");
+  return OwnedExtension(props, host, (api) => {
+    const instance = props.create();
+    api.attachPrimitive(instance);
+    return { instance, detach: () => api.detachPrimitive(instance) };
+  });
+}
+export function PanePrimitive<A extends IPanePrimitive<Time>>(props: PrimitiveProps<A>) {
+  const host = required(useContext(PaneContext), "PanePrimitive");
+  return OwnedExtension(props, host, (api) => {
+    const instance = props.create();
+    api.attachPrimitive(instance);
+    return { instance, detach: () => api.detachPrimitive(instance) };
+  });
+}
+export function Markers(props: MarkersProps) {
+  const host = required(useContext(SeriesContext), "Markers");
+  return OwnedExtension(props, host, (api) => {
+    const instance = createSeriesMarkers(
+      api as ISeriesApi<StandardSeriesType, Time>,
+      [],
+      props.options,
+    );
+    return {
+      instance,
+      detach: () => instance.detach(),
+      update: () => {
+        instance.setMarkers(
+          props.data.map((row) => ({
+            ...row,
+            time: typeof row.time === "object" ? { ...row.time } : row.time,
+          })),
+        );
+        if (props.options) instance.applyOptions?.(props.options);
+      },
+    };
+  });
+}
 // Optional plain native patches. Both presets specify every appearance field
 // they own, so switching in either direction never relies on native defaults.
 export const lightChartOptions = {

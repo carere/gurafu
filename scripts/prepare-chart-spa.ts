@@ -7,6 +7,14 @@ await rm(consumer, { recursive: true, force: true });
 await mkdir(consumer, { recursive: true });
 await cp("tests/chart-spa", consumer, { recursive: true });
 await prepareCompositionExamples(consumer);
+await cp("src/components/examples/extensions-view.ts", resolve(consumer, "src/extensions-view.ts"));
+await writeFile(
+  resolve(consumer, "src/extensions-example.tsx"),
+  (await readFile("src/components/examples/extensions.tsx", "utf8")).replaceAll(
+    "@/registry/kobalte/chart/chart",
+    "~/components/gurafu/chart",
+  ),
+);
 // Compile and mount the actual website example against the installed registry.
 await writeFile(
   resolve(consumer, "src/data-history.tsx"),
