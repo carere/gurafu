@@ -1,5 +1,7 @@
-import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { serveLocalRegistry } from "./local-registry";
+import { verifyRegistryBoundary } from "./verify-registry-boundary";
 
 // Serve the actual generated catalog locally. Only the hosted core dependency
 // URL changes origin, so shadcn traverses the optional item's real dependency.
@@ -7,30 +9,7 @@ export async function installIndicators22(
   consumer: string,
   items = ["chart-indicators", "chart-legend", "chart-indicator-controls"],
 ) {
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    async fetch(request) {
-      const name = new URL(request.url).pathname.split("/").pop();
-      if (
-        !name ||
-        ![
-          "chart.json",
-          "chart-indicators.json",
-          "chart-legend.json",
-          "chart-indicator-controls.json",
-          "chart-control-ui.json",
-        ].includes(name)
-      )
-        return new Response("Not found", { status: 404 });
-      const item = JSON.parse(await readFile(`public/r/kobalte/${name}`, "utf8"));
-      if (item.registryDependencies)
-        item.registryDependencies = item.registryDependencies.map((url: string) =>
-          url.replace("https://gurafu.carere.dev", new URL(request.url).origin),
-        );
-      return Response.json(item);
-    },
-  });
+  const server = serveLocalRegistry();
   try {
     const child = Bun.spawn(
       [
@@ -102,62 +81,59 @@ else render(() => <Chart.Root><Chart.Pane id="price"><Chart.LineSeries id="price
     const child = Bun.spawn(command, { cwd: directory, stdout: "inherit", stderr: "inherit" });
     if (await child.exited) throw new Error("Core-only installed check failed");
   }
-  const files = await readdir(resolve(directory, "src/components/gurafu"));
-  if (files.some((name) => name.includes("indicator")))
-    throw new Error("Core installed optional indicators");
+  await verifyRegistryBoundary(directory, ["chart.tsx", "chart-data.ts"], false, true);
   console.log("Core-only installation, strict types and production build PASS");
 }
 
 // Each optional widget is also a usable first install. Selection stays entirely
 // outside core; legend brings core, but never provisions indicator declarations.
 export async function verifyOptionalWidgets24(consumer: string) {
-  const directory = `${consumer}-widgets-only-24`;
-  await rm(directory, { recursive: true, force: true });
-  await mkdir(resolve(directory, "src"), { recursive: true });
-  for (const file of [
-    "package.json",
-    "components.json",
-    "tsconfig.json",
-    "vite.config.ts",
-    "index.html",
-    "src/style.css",
-  ])
-    await cp(resolve("tests/chart-spa", file), resolve(directory, file));
-  async function run(command: string[]) {
-    const process = Bun.spawn(command, { cwd: directory, stdout: "inherit", stderr: "inherit" });
-    if (await process.exited) throw new Error("Independent optional consumer failed");
-  }
-  await run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"]);
-  await installIndicators22(directory, ["chart-indicator-controls"]);
-  await writeFile(
-    resolve(directory, "src/main.tsx"),
-    `import {render} from "solid-js/web";
+  for (const item of ["chart-indicator-controls", "chart-legend"]) {
+    const directory = `${consumer}-${item}-only-28`;
+    await rm(directory, { recursive: true, force: true });
+    await mkdir(resolve(directory, "src"), { recursive: true });
+    for (const file of [
+      "package.json",
+      "components.json",
+      "tsconfig.json",
+      "vite.config.ts",
+      "index.html",
+      "src/style.css",
+    ])
+      await cp(resolve("tests/chart-spa", file), resolve(directory, file));
+    async function run(command: string[]) {
+      const process = Bun.spawn(command, { cwd: directory, stdout: "inherit", stderr: "inherit" });
+      if (await process.exited) throw new Error("Independent optional consumer failed");
+    }
+    await run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"]);
+    await installIndicators22(directory, [item]);
+    const selection = item === "chart-indicator-controls";
+    await writeFile(
+      resolve(directory, "src/main.tsx"),
+      selection
+        ? `import {render} from "solid-js/web";
 import {ChartIndicatorControls} from "~/components/gurafu/chart-indicator-controls";
-render(()=><ChartIndicatorControls items={[{value:"sma",label:"Price SMA"}]} defaultValue={["sma"]} />,document.getElementById("root")!);`,
-  );
-  await run(["npm", "run", "check"]);
-  await run(["npm", "run", "build"]);
-  let files = await readdir(resolve(directory, "src/components/gurafu"));
-  if (files.some((name) => ["chart.tsx", "chart-data.ts", "indicators.tsx"].includes(name)))
-    throw new Error("Standalone selection installed chart core");
-  const manifest = JSON.parse(await readFile(resolve(directory, "package.json"), "utf8"));
-  if (manifest.dependencies["@carere/solux"] || manifest.dependencies["lightweight-charts"])
-    throw new Error("Standalone selection pulled chart dependencies");
-  await installIndicators22(directory, ["chart-legend"]);
-  await writeFile(
-    resolve(directory, "src/main.tsx"),
-    `import {render} from "solid-js/web";
+render(()=><ChartIndicatorControls items={[{value:"sma",label:"Price SMA"}]} defaultValue={["sma"]} />,document.getElementById("root")!);`
+        : `import {render} from "solid-js/web";
 import * as Chart from "~/components/gurafu/chart";
 import {ChartLegend} from "~/components/gurafu/chart-legend";
 render(()=><Chart.Root><Chart.Pane id="price"><Chart.CandlestickSeries id="price" data={[]} /></Chart.Pane><ChartLegend priceSeries="price" /></Chart.Root>,document.getElementById("root")!);`,
-  );
-  await run(["npm", "run", "check"]);
-  await run(["npm", "run", "build"]);
-  files = await readdir(resolve(directory, "src/components/gurafu"));
-  if (files.includes("indicators.tsx"))
-    throw new Error("Legend installed optional indicator declarations");
-  await run(["npm", "ls", "solid-js"]);
+    );
+    await run(["npm", "run", "check"]);
+    await run(["npm", "run", "build"]);
+    await verifyRegistryBoundary(
+      directory,
+      [
+        `${item}.tsx`,
+        "chart-control-button.tsx",
+        "chart-control-utils.ts",
+        ...(selection ? [] : ["chart.tsx", "chart-data.ts"]),
+      ],
+      true,
+      !selection,
+    );
+  }
   console.log(
-    "Independent selection-first and legend-only published installs, strict types and SPA builds PASS",
+    "Independent selection-only and legend-only published installs, strict types and SPA builds PASS",
   );
 }

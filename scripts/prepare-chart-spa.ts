@@ -9,12 +9,25 @@ import {
   verifyOptionalWidgets24,
 } from "./prepare-indicators-22";
 import { prepareReplay25 } from "./prepare-replay-25";
+import { verifyRegistryBoundary } from "./verify-registry-boundary";
 
 await rm(consumer, { recursive: true, force: true });
 await mkdir(consumer, { recursive: true });
 await cp("tests/chart-spa", consumer, { recursive: true });
 await prepareCompositionExamples(consumer);
 await prepareIndependent26(consumer);
+// The final gallery is the actual website composition, with only import roots
+// rewritten. It mounts in this consumer without Start/Router or a global store.
+await cp("src/components/examples", resolve(consumer, "src/components/examples"), {
+  recursive: true,
+});
+for (const file of new Bun.Glob("**/*.{ts,tsx}").scanSync("src/components/examples")) {
+  const path = resolve(consumer, "src/components/examples", file);
+  await writeFile(
+    path,
+    (await readFile(path, "utf8")).replaceAll("@/registry/kobalte/chart/", "~/components/gurafu/"),
+  );
+}
 await cp("src/components/examples/extensions-view.ts", resolve(consumer, "src/extensions-view.ts"));
 await writeFile(
   resolve(consumer, "src/extensions-example.tsx"),
@@ -52,9 +65,33 @@ async function run(cmd: string[], cwd: string) {
 }
 await run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"], consumer);
 await verifyCoreOnly22(consumer);
-await installIndicators22(consumer);
+await installIndicators22(consumer, ["chart-indicators"]);
+await verifyRegistryBoundary(
+  consumer,
+  ["chart.tsx", "chart-data.ts", "indicators.tsx", "indicator-calculations.ts"],
+  false,
+  true,
+);
+await installIndicators22(consumer, ["chart-legend", "chart-indicator-controls"]);
 await verifyOptionalWidgets24(consumer);
 await prepareReplay25(consumer);
+await verifyRegistryBoundary(
+  consumer,
+  [
+    "chart.tsx",
+    "chart-data.ts",
+    "indicators.tsx",
+    "indicator-calculations.ts",
+    "chart-control-button.tsx",
+    "chart-control-utils.ts",
+    "chart-legend.tsx",
+    "chart-indicator-controls.tsx",
+    "chart-replay-controls.tsx",
+    "chart-date-controls.tsx",
+  ],
+  true,
+  true,
+);
 // These belong to the website example, never the registry dependency manifest.
 await run(
   [

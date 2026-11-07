@@ -40,9 +40,9 @@ export function NativePanes() {
     overlay() ? ["price"] : volumeFirst() ? ["volume", "price"] : ["price", "volume"];
   return (
     <section aria-labelledby="panes-heading" class="space-y-4">
-      <h2 id="panes-heading" class="text-2xl font-semibold tracking-tight">
+      <h3 id="panes-heading" class="text-xl font-semibold tracking-tight">
         Native panes
-      </h2>
+      </h3>
       <p class="max-w-prose text-muted-foreground">
         Price and volume share one timeline. Drag the separator to resize the native panes. Moving
         volume or reordering panes retains their compatible resources and data. The overlay is an

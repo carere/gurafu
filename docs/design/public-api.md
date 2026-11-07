@@ -14,10 +14,12 @@ crosshair commands and opt-in per-instance Solux Redux DevTools inspection.
 The separate `chart-replay-controls` and `chart-date-controls` items provide
 request-only standalone playback and UTC calendar controls. The website owns
 clock, cutoff, history loading and coherent live restoration.
-Other examples illustrate later slices of
-[spec #17](https://github.com/carere/gurafu/issues/17), which resolves numerical,
-website and acceptance decisions. Its SPA-first amendment supersedes the dedicated
-SSR/hydration requirements preserved in these earlier design notes.
+All six website destinations are implemented as direct public compositions in the
+[gallery](../../src/components/examples/gallery.tsx). See the
+[delivery audit](../verification/composable-charts.md) for executable verification,
+observed browser results and limits. The SPA-first amendment in
+[spec #17](https://github.com/carere/gurafu/issues/17) supersedes the earlier
+SSR/hydration proposal; dedicated component SSR is not an acceptance guarantee.
 
 ## Composition
 
@@ -125,7 +127,7 @@ Chart-local commands live on the controller; native option/data/event types rema
 
 Optional feature components use Gurafu-owned `useChart`, `usePane`, and `useSeries` context helpers. These return readiness accessors rather than pretending DOM mount implies a native handle is ready. A helper outside its required scope fails clearly. Context never exposes the private Solux store or shadows an application provider.
 
-Native resources are created only after browser mounting. Ref availability does not promise data or layout coordinates. Cleanup clears lifecycle-aware refs before later consumer effects can use disposed resources. Actual SSR/import/hydration checks remain implementation acceptance work.
+Native resources are created only after browser mounting. Ref availability does not promise data or layout coordinates. Cleanup clears lifecycle-aware refs before later consumer effects can use disposed resources. Browser SPA lifetimes and the website production build are verified by the delivery gates; dedicated component SSR/hydration is outside scope.
 
 ### Dataset contexts
 
@@ -490,9 +492,9 @@ Separately installable items:
 - `chart-legend`: the ready-to-use legend, public read model helper and customization hooks.
 - `chart-indicator-controls`, `chart-replay-controls`, `chart-date-controls`: independently optional ready-to-use UI widgets.
 
-Registry item names identify installation; they need not all become one module filename. These examples use installed local imports under `~/components/gurafu/`; actual installation resolves the consumer's configured aliases. Item dependencies install shared helpers and required Zaidan UI sources only where used. No `@gurafu/*` namespace/hosted endpoint is claimed to exist yet; registering/publishing the catalog is implementation work. No giant mandatory barrel import should drag website/framework/control modules into a basic chart.
+Registry item names identify installation; they need not all become one module filename. These examples use installed local imports under `~/components/gurafu/`; actual installation resolves the consumer's configured aliases. Item dependencies install shared helpers and required Zaidan UI sources only where used. No `@gurafu/*` namespace/hosted endpoint is claimed to exist yet; generated local installation is reproducible with `bun scripts/local-registry.ts`; upstream publication remains separate. No giant mandatory barrel import should drag website/framework/control modules into a basic chart.
 
-Retain the pinned Lightweight Charts 5.2.1. Adopt only the verified newly published/pinned Solux v4 release required by the state-ownership resolution; its version remains a release prerequisite, not an invented number. Core registry dependencies include whatever runtime/transitive declaration packages the verified release actually requires. Consumers need not write Solux/RxJS application code or provide a global store.
+Core pins Lightweight Charts **5.2.1**, published **@carere/solux 4.1.0** and **Solid 1.9.18**. The published package gate and clean strict-declaration consumers verify the required opt-in/disposal/detached-snapshot guarantees without a local Solux substitution. Consumers need not write Solux/RxJS application code or provide a global store.
 
 Per-chart debugging uses `devtools={false | { name: string }}`, disabled by default. Explicit names label the existing Redux DevTools integration, and an automatic unique identity prevents same-name chart connections colliding. Use supported browser-only initialization and disposal. Application-controlled state remains in the application; no automatic shared timeline or deterministic effect/data replay is promised.
 
@@ -514,17 +516,26 @@ Use the same complete chart and series appearance option types that TradingView 
 
 Root owns the stable outer container and inner native surface described above. `class`/ordinary Root DOM props style the outer shell; `containerProps` styles/observes the inner chart surface. Consumer dimensions and native autosizing govern layout. Empty/loading/error presentation can be ordinary child HTML; loading/error inputs do not implicitly fetch or substitute datasets. Optional UI uses keyboard-accessible Zaidan/Kobalte conventions, explicit labels and formatting/localization hooks; no new visual world is being designed in this API decision.
 
-### Server import, rendering and hydration
+### Browser delivery and website rendering
 
-- Server import may evaluate types/component definitions/pure helpers but must not create browser chart resources, global live model graphs or DevTools connections.
-- Server rendering produces stable outer/inner shells and appropriate ordinary optional UI, with fresh isolated per-request model state. It does not serialize native handles/canvases.
-- Hydration reuses the shell. Create native chart resources after browser mount, reconcile desired declarations/data and expose controllers at their actual readiness stage. Zero-size/hidden surfaces still have native layout limitations.
-- Implementation must verify framework compatibility on installed source in both the current Solid/TanStack consumer and a clean non-TanStack Solid SSR consumer. No route imports, server-only code, hosted data dependencies, or global application provider are required by distributed source.
-- Browser behavior, cleanup, declarations with `skipLibCheck: false`, fresh-store/request isolation, runtime dependency installation, Solux published-version guarantees and negative custom-type examples remain implementation acceptance work. These design notes do not establish browser, production or clean-consumer compile verification.
+Native resources and opt-in DevTools connections are created after browser mount.
+The website guards the gallery with `ClientOnly`, keeping market requests out of
+server rendering and route preload. Its production client/server build remains a
+required gate. Dedicated component SSR/server-render/hydration support is outside
+the accepted SPA-first scope; no such guarantee follows from that website build.
 
-## Remaining specification and verification
+Generated source is installed and strictly compiled in clean Solid Vite SPA
+consumers, including a core-only consumer and an optional assembled consumer
+without Start/Router or a global application store. Website example fixtures add
+Effect/Query only after registry dependency boundaries have been checked. See the
+[delivery audit](../verification/composable-charts.md) for the commands and coverage.
 
-- [Define indicator numerical and visual compatibility with Ashiso](https://github.com/carere/gurafu/issues/12) owns numerical/visual defaults, parameter fields and result-row definitions.
-- [Specify website examples and implementation acceptance criteria](https://github.com/carere/gurafu/issues/11) owns exact website examples and executable acceptance coverage.
+## Specification and verification
 
-These notes document the accepted interface. They do not implement the chart or establish benchmark, browser or clean-consumer typecheck results. The implementation must verify the signatures, lifecycle behavior and installed-source compatibility described above before claiming those guarantees.
+[Spec #17](https://github.com/carere/gurafu/issues/17) resolves the six examples,
+numerical defaults, lifecycle/authority boundaries and acceptance requirements.
+The exported implementation, strict positive/negative installed type fixtures and
+executable browser/numerical gates now establish those supported behaviors.
+These usage sketches remain explanatory; use the installed exports as the type
+source of truth. No benchmark, production deployment, upstream publication,
+cross-browser certification or deterministic cross-store replay is claimed.

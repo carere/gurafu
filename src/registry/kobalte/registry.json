@@ -26,7 +26,7 @@
       "name": "chart-indicators",
       "type": "registry:component",
       "title": "Chart indicators",
-      "description": "Optional calculated or supplied Bollinger Bands and price SMA overlays, with pure calculations.",
+      "description": "Optional calculated or supplied Bollinger Bands, price SMA/EMA overlays and native-pane RSI, with four pure calculations.",
       "registryDependencies": ["https://gurafu.carere.dev/r/kobalte/chart.json"],
       "files": [
         {

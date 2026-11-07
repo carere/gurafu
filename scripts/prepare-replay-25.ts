@@ -1,5 +1,7 @@
-import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { serveLocalRegistry } from "./local-registry";
+import { verifyRegistryBoundary } from "./verify-registry-boundary";
 
 export async function prepareReplay25(consumer: string) {
   for (const name of ["replay-date", "replay-session", "replay-evidence"]) {
@@ -11,28 +13,7 @@ export async function prepareReplay25(consumer: string) {
         .replaceAll('"../../services/', '"./services/'),
     );
   }
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    async fetch(request) {
-      const name = new URL(request.url).pathname.split("/").pop();
-      if (
-        !name ||
-        ![
-          "chart-replay-controls.json",
-          "chart-date-controls.json",
-          "chart-control-ui.json",
-        ].includes(name)
-      )
-        return new Response("Not found", { status: 404 });
-      const item = JSON.parse(await readFile(`public/r/kobalte/${name}`, "utf8"));
-      if (item.registryDependencies)
-        item.registryDependencies = item.registryDependencies.map((url: string) =>
-          url.replace("https://gurafu.carere.dev", new URL(request.url).origin),
-        );
-      return Response.json(item);
-    },
-  });
+  const server = serveLocalRegistry();
   async function run(command: string[], cwd: string) {
     const child = Bun.spawn(command, { cwd, stdout: "inherit", stderr: "inherit" });
     if (await child.exited) throw new Error("Replay/date installed consumer failed");
@@ -88,25 +69,12 @@ const wrong = <ChartDateControls value={1767225600} />;`;
       await install(directory, item);
       await run(["npm", "run", "check"], directory);
       await run(["npm", "run", "build"], directory);
-      const files = await readdir(resolve(directory, "src/components/gurafu"));
-      if (files.some((name) => ["chart.tsx", "chart-data.ts", "indicators.tsx"].includes(name)))
-        throw new Error("Standalone widget installed core");
-      const manifest = JSON.parse(await readFile(resolve(directory, "package.json"), "utf8"));
-      if (
-        ["lightweight-charts", "@carere/solux", "effect", "@tanstack/solid-query"].some(
-          (name) => manifest.dependencies[name],
-        )
-      )
-        throw new Error("Widget pulled application/chart dependencies");
-      const paths = Bun.spawn(["npm", "ls", "solid-js", "--parseable", "--all"], {
-        cwd: directory,
-        stdout: "pipe",
-      });
-      if (
-        (await new Response(paths.stdout).text()).trim().split("\n").length !== 1 ||
-        (await paths.exited)
-      )
-        throw new Error("Multiple Solid runtimes");
+      await verifyRegistryBoundary(
+        directory,
+        [`${item}.tsx`, "chart-control-button.tsx", "chart-control-utils.ts"],
+        true,
+        false,
+      );
       await install(consumer, item);
     }
   } finally {

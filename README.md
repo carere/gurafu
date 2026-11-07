@@ -111,7 +111,7 @@ bun --bun shadcn add @zaidan/button
 
 Gurafu's own catalog lives at `src/registry/kobalte/registry.json`. The build
 validates it before generating static JSON in `public/r/kobalte`, which is
-served at `/r/kobalte/registry.json`. Generated registry files are ignored by Git
+served locally at `/r/kobalte/registry.json`. Generated registry files are ignored by Git
 and rebuilt before development and production builds.
 
 The `chart` item installs `Root`, `Pane`, snapshot/incremental `CandlestickSeries`, `BarSeries`,
@@ -122,12 +122,49 @@ types, and plain `lightChartOptions` / `darkChartOptions` presets.
 It pins Lightweight Charts **5.2.1**, published **@carere/solux 4.1.0**, and Solid
 **1.9.18**. Core has no Zaidan, Kobalte, TanStack or Effect dependency.
 
-Build locally, then install the generated item in a Solid SPA configured with
-shadcn aliases:
+The catalog currently has six public items and one internal shared helper:
+
+| Item                          | Installed modules                            | Runtime boundary                 |
+| ----------------------------- | -------------------------------------------- | -------------------------------- |
+| `chart`                       | `chart`, `chart-data`                        | Solid, Lightweight Charts, Solux |
+| `chart-indicators`            | `indicators`, `indicator-calculations`, core | No control UI                    |
+| `chart-legend`                | `chart-legend`, core, shared UI              | No indicator calculations        |
+| `chart-indicator-controls`    | Selection widget, shared UI                  | No chart core                    |
+| `chart-replay-controls`       | Request-only playback widget, shared UI      | No chart core                    |
+| `chart-date-controls`         | UTC date/latest widget, shared UI            | No chart core                    |
+| `chart-control-ui` (internal) | Zaidan-derived native button/class helpers   | Solid, CVA, clsx, tailwind-merge |
+
+These endpoints are generated locally on this branch. No published main-branch
+endpoint or `@gurafu` namespace is claimed. From this repository, run:
 
 ```sh
-bun --bun shadcn add /absolute/path/to/gurafu/public/r/kobalte/chart.json
+bun install --frozen-lockfile
+moon run gurafu:r-build-kobalte
+bun scripts/local-registry.ts 4280
 ```
+
+Keep that process running. In a clean Solid Vite SPA with shadcn's `components.json`
+and TypeScript/Vite aliases configured (see [the consumer fixture](tests/chart-spa)),
+install only the items needed:
+
+```sh
+bun --bun shadcn add http://127.0.0.1:4280/r/kobalte/chart.json
+# Optional: choose any of these independently.
+bun --bun shadcn add http://127.0.0.1:4280/r/kobalte/chart-indicators.json
+bun --bun shadcn add http://127.0.0.1:4280/r/kobalte/chart-legend.json
+bun --bun shadcn add http://127.0.0.1:4280/r/kobalte/chart-indicator-controls.json
+bun --bun shadcn add http://127.0.0.1:4280/r/kobalte/chart-replay-controls.json
+bun --bun shadcn add http://127.0.0.1:4280/r/kobalte/chart-date-controls.json
+```
+
+The local server rewrites only Gurafu dependency origins to localhost, preserving
+actual generated sources, targets and package dependencies. Stop it with Ctrl-C.
+A direct local `chart.json` file also installs core, but optional items need this
+server to resolve their shared dependencies locally. For optional UI styling,
+provide Tailwind CSS with Zaidan-compatible semantic tokens (or adapt installed
+classes to your own system); the website's [theme entry point](src/styles.css)
+shows those tokens. No stylesheet, website service or global store is required
+by chart core; give Root an explicit usable height.
 
 With a `~/*` source alias, the installed composition is:
 
@@ -184,8 +221,10 @@ pages with current live corrections and rejects obsolete results before writing.
 These fixtures do not claim live-network integration. The additional
 [service-backed history](src/components/examples/service-history.tsx) uses browser-direct
 Binance Spot through the website-only [Effect/Query services](src/services/market/README.md),
-with deterministic injectable fixture Layers for acceptance. Custom extensions and
-optional UI remain in [spec #17](https://github.com/carere/gurafu/issues/17).
+with deterministic injectable fixture Layers for acceptance. All six destinations group their complete readable composition and helper source in
+[the gallery](src/components/examples/gallery.tsx): Basics (including native panes),
+Indicators and panes, Data and history (including both history variants/services),
+Replay and date navigation, Independent charts, and Extensions and lifecycle.
 
 ### Data authority and navigation
 
@@ -233,8 +272,8 @@ disposal; `hasData()` describes populated display, including zero values.
 The separately installed `chart-indicators` item depends on `chart` and adds
 `BollingerBands`, `SMA`, `calculateBollingerBands`, `calculateSMA` and their public
 parameter/result types. It adds no Effect, Query, TanStack or optional control UI.
-The generated item is `/r/kobalte/chart-indicators.json`; its core dependency uses
-the registry's hosted URL. Local acceptance serves both generated items together.
+The generated item is `/r/kobalte/chart-indicators.json`. Use the local registry
+server above so its core dependency resolves to the same local generated catalog.
 
 ```tsx
 import * as Indicators from "~/components/gurafu/indicators";
@@ -285,7 +324,7 @@ four indicators. RSI uses an explicit native pane, a linear 0–100 scale and da
 30/70 guides. Override `RSI.priceScaleOptions`, native
 `options.autoscaleInfoProvider` and `referenceLines` (native price-line options,
 or `[]` to remove). Visibility also hides guides; shared native scales affect
-other content on that scale. Legends and selection widgets remain later tickets.
+other content on that scale. Optional legends and selection widgets are described below.
 
 ### Acceptance checks
 
@@ -305,12 +344,14 @@ with `skipLibCheck: false`, checks core without website dependencies before addi
 builds a standalone Solid SPA, reports the single
 Solid runtime and runs Chromium browser checks against that installed source.
 No local Solux build or application-wide provider is required. Dedicated component
-SSR/hydration and later spec features are outside this slice.
+SSR/hydration is outside the accepted scope. See the [delivery audit](docs/verification/composable-charts.md)
+for the complete commands, coverage, manual observations and environment limits.
 
 ## Source layout
 
 ```text
 src/
+  components/examples/ Six direct public compositions and website coordination
   components/ui/      Website components installed from Zaidan
   lib/               Website utilities
   registry/kobalte/  Source code and catalog for distribution

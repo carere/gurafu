@@ -44,7 +44,7 @@ history without reverting live cache writes, fetches from the penultimate open
 time, and lets newly received live rows win that fresh tail. All callbacks check
 current owner/dataset lifetime. Removing a chart never disposes its sibling's
 runtime. Older-history buttons request the immediately preceding page; explicit
-bounded ranges can be collected by the same facade for later examples.
+bounded ranges can be collected by the same facade for replay date navigation.
 
 History requests time out after 20 seconds. HTTP retries are manual; readable
 Retry-After values are respected. CORS-hidden failures do not claim a status or
@@ -55,7 +55,7 @@ history and marks it potentially stale. The collector caps each request at ten
 pages; it is not a complete-market archive or an unbounded gap-repair engine.
 
 `createMarketFixture({ controlled: true })` injects a deterministic Layer at the
-same port. Tests/future examples can resolve/reject pages in any order, inspect
+same port. Tests/examples can resolve/reject pages in any order, inspect
 abort/finalization at that boundary, and emit stream/connection events even after
 closure to exercise stale-callback rejection. The automatic fixture mode supplies
 illustrative calendar-aligned data and a connected, static stream; it never claims
