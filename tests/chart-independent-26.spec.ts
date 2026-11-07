@@ -66,6 +66,95 @@ test.afterEach(async ({ page }) => {
 
 const start = 1767225600;
 
+test("candle, volume and exact-time legend colors agree for rising, falling and doji history and live replacements", async ({
+  page,
+}) => {
+  await page.goto("/?independent26");
+  await expect
+    .poll(() => page.evaluate(() => window.independent26.fixture.requests.length))
+    .toBe(2);
+  await page.evaluate(() => {
+    const f = window.independent26;
+    for (const request of f.fixture.requests)
+      request.resolve(
+        f.fixtureCandles(request.page).map((row, index) => ({
+          ...row,
+          close: index === 1 ? row.open - 1 : index === 2 ? row.open : row.close,
+        })),
+      );
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => window.independent26.candles.filter((c) => c?.ready() && c.hasData()).length,
+      ),
+    )
+    .toBe(2);
+  const history = await page.evaluate(() => {
+    const f = window.independent26;
+    return [0, 1].map((id) => {
+      const chart = f.charts[id];
+      const candles = f.candles[id];
+      if (!chart || !candles) throw new Error("Missing chart resources");
+      const options = candles.api.options();
+      const volume = chart.api.panes()[1].getSeries()[0];
+      const expected = [options.upColor, options.downColor, options.upColor];
+      const readings = candles.api
+        .data()
+        .slice(0, 3)
+        .map((row) => {
+          chart.setCrosshairPosition(0, row.time, candles);
+          const bar = volume.data().find((value) => value.time === row.time);
+          const model = f.models[id]();
+          return {
+            volume: bar && "color" in bar ? bar.color : null,
+            ohlc: model.ohlc?.color,
+            legendVolume: model.volume?.color,
+          };
+        });
+      return { expected, readings };
+    });
+  });
+  for (const { expected, readings } of history)
+    expect(readings).toEqual(
+      expected.map((color) => ({ volume: color, ohlc: color, legendVolume: color })),
+    );
+  for (const close of [194, 195]) {
+    await page.evaluate((close) => {
+      const f = window.independent26;
+      const stream = f.fixture.streams.find((s) => s.market.interval === "1m" && !s.closed);
+      if (!stream) throw new Error("Source stream is absent");
+      stream.emit({ type: "candle", candle: { ...f.fixtureCandles(stream.market)[95], close } });
+    }, close);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const f = window.independent26;
+          const chart = f.charts[0];
+          const candles = f.candles[0];
+          if (!chart || !candles) throw new Error("Missing chart resources");
+          const row = candles.api.data().at(-1);
+          if (!row || !("close" in row)) throw new Error("Missing latest candle");
+          chart.setCrosshairPosition(0, row.time, candles);
+          const volume = chart.api.panes()[1].getSeries()[0].data().at(-1);
+          const options = candles.api.options();
+          const expected = row.close >= row.open ? options.upColor : options.downColor;
+          const model = f.models[0]();
+          return {
+            close: row.close,
+            matches:
+              volume &&
+              "color" in volume &&
+              volume.color === expected &&
+              model.ohlc?.color === expected &&
+              model.volume?.color === expected,
+          };
+        }),
+      )
+      .toEqual({ close, matches: true });
+  }
+});
+
 async function load(page: import("@playwright/test").Page, four = false) {
   await page.goto("/?independent26");
   if (four) {

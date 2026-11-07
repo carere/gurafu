@@ -17,6 +17,7 @@ import { createMarketDataset } from "../../services/market/dataset";
 import type { Interval, Market } from "../../services/market/exchange";
 
 type SharedTime = { sender: number; time: UTCTimestamp };
+const candleOptions = { upColor: "#26a69a", downColor: "#ef5350" };
 const intervals: readonly Interval[] = ["1m", "5m", "15m", "1h"];
 const controlClass =
   "rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
@@ -120,7 +121,13 @@ function IndependentChart(props: {
   const [candles, setCandles] = createSignal<Chart.CandlestickSnapshotController>();
   const [revision, setRevision] = createSignal(0);
   const refresh = () => setRevision((value) => value + 1);
-  const volume = createMemo(() => rows().map((row) => ({ time: row.time, value: row.volume })));
+  const volume = createMemo(() =>
+    rows().map((row) => ({
+      time: row.time,
+      value: row.volume,
+      color: row.close >= row.open ? candleOptions.upColor : candleOptions.downColor,
+    })),
+  );
   function assign(next: Market) {
     props.invalidate();
     setMarket(next);
@@ -208,6 +215,7 @@ function IndependentChart(props: {
           <Chart.CandlestickSeries
             id="candles"
             data={rows()}
+            options={candleOptions}
             apiRef={setCandles}
             onDataChange={refresh}
           />
