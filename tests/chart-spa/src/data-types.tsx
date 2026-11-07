@@ -47,6 +47,17 @@ export function DataTypes() {
             series?.pop(1);
           }}
         />
+        <Chart.LineSeries
+          id="incremental-line"
+          apiRef={(series) => {
+            const native: ISeriesApi<"Line", Time> | undefined = series?.api;
+            void native;
+            series?.setData([{ time: "2026-10-01", value: 0 }]);
+            series?.update({ time: "2026-10-02", value: 1 });
+            // @ts-expect-error Incremental Line writers cannot accept OHLC rows.
+            series?.update({ time: "2026-10-01", open: 1, high: 2, low: 0, close: 1 });
+          }}
+        />
         {/* @ts-expect-error Snapshot and incremental authority are exclusive. */}
         <Chart.CandlestickSeries id="both" data={[]} defaultData={[]} />
         {/* @ts-expect-error Invalid seed rows must be rejected too. */}

@@ -278,6 +278,8 @@ test("Data and history uses matching installed data, keeps live corrections acro
     await variant.getByRole("button", { name: "Resolve request 1", exact: true }).click();
     await expect(variant.getByRole("status")).toContainText("16 candles · latest close 151");
     await variant.getByRole("button", { name: "Load older history", exact: true }).click();
+    await expect(variant.getByRole("status")).toContainText("Loading fixture history");
+    await expect(variant.getByRole("status")).toContainText("16 candles");
     await variant.getByRole("button", { name: "Replace latest bar", exact: true }).click();
     await variant.getByRole("button", { name: "Load older history", exact: true }).click();
     await variant.getByRole("button", { name: "Resolve request 3", exact: true }).click();

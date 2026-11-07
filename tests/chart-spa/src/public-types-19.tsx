@@ -59,10 +59,11 @@ export function StandardTypes19() {
           // @ts-expect-error A Line row requires value, not OHLC.
           data={[{ time: "2026-10-01", open: 1, high: 2, low: 0, close: 1 }]}
         />
-        {/* @ts-expect-error Area options are family-specific. */}
         <Chart.AreaSeries
           id="bad-area"
+          // @ts-expect-error Invalid Area options also prevent the snapshot overload matching.
           data={[]}
+          // @ts-expect-error Area options are family-specific.
           options={{ baseValue: { type: "price", price: 0 } }}
         />
         {/* @ts-expect-error Baseline options are family-specific. */}

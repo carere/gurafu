@@ -17,6 +17,14 @@ declare global {
       remove(): void;
       restore(): void;
       changePaneId(): void;
+      cleanupObservations: {
+        paneRefCleared: boolean;
+        seriesRefCleared: boolean;
+        paneReady: boolean;
+        seriesReady: boolean;
+        paneApiRejected: boolean;
+        seriesApiRejected: boolean;
+      }[];
       saved?: {
         chart: ChartController;
         pane: PaneController;
@@ -425,6 +433,27 @@ test("type changes and transfers create new resources; removed final native layo
   expect(errors).toEqual([]);
 });
 
+test("declaration cleanup invalidates retained handles before later consumer effects", async ({
+  page,
+}) => {
+  await page.goto("/?lifetimes19");
+  await expect.poll(() => page.evaluate(() => window.lifetimes19?.series[0]?.ready())).toBe(true);
+  const observations = await page.evaluate(() => {
+    window.lifetimes19.remove();
+    return window.lifetimes19.cleanupObservations;
+  });
+  expect(observations).toEqual([
+    {
+      paneRefCleared: true,
+      seriesRefCleared: true,
+      paneReady: false,
+      seriesReady: false,
+      paneApiRejected: true,
+      seriesApiRejected: true,
+    },
+  ]);
+});
+
 test("pane stretch, constrained height and native separator resizing stay usable after reorder", async ({
   page,
 }) => {
@@ -486,6 +515,14 @@ test("native mouse payloads retain native series keys and data-change scope", as
   await expect
     .poll(() => page.evaluate(() => window.composition19?.series.line?.api.priceToCoordinate(20)))
     .not.toBeNull();
+  // Model coordinates can become non-null before native pane/autosize widgets
+  // finish their first paint. Read click geometry after those layout frames.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
   const point = await page.evaluate(() => {
     const f = window.composition19;
     const pane = f.chart().api.panes()[0].getHTMLElement()?.getBoundingClientRect();
