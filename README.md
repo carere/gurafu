@@ -180,7 +180,10 @@ snapshot/incremental charts, explicitly resolved fixture requests, out-of-order
 completion, failures/retry, context switching, updates, correction, pop and
 load-before-date navigation. The application retains recoverable history, merges
 pages with current live corrections and rejects obsolete results before writing.
-These fixtures do not claim live-network integration. Custom extensions and
+These fixtures do not claim live-network integration. The additional
+[service-backed history](src/components/examples/service-history.tsx) uses browser-direct
+Binance Spot through the website-only [Effect/Query services](src/services/market/README.md),
+with deterministic injectable fixture Layers for acceptance. Custom extensions and
 optional UI remain in [spec #17](https://github.com/carere/gurafu/issues/17).
 
 ### Data authority and navigation
@@ -228,7 +231,7 @@ disposal; `hasData()` describes populated display, including zero values.
 
 ```sh
 bunx playwright install chromium
-moon run gurafu:test-solux gurafu:test-chart
+moon run gurafu:test-solux gurafu:test-market gurafu:test-chart
 ```
 
 `test-solux` probes the published package's opt-in DevTools protocol, detached
@@ -236,7 +239,8 @@ nested RESET snapshots and repeated disposal. Its extension fake does not certif
 the actual Redux extension UI. `test-chart` generates registry JSON, uses the
 actual shadcn installer in an OS temporary directory outside the repository,
 installs declared published dependencies, compiles positive/negative public types
-with `skipLibCheck: false`, builds a non-TanStack Solid SPA, reports the single
+with `skipLibCheck: false`, checks core without website dependencies before adding the website service test dependencies,
+builds a standalone Solid SPA, reports the single
 Solid runtime and runs Chromium browser checks against that installed source.
 No local Solux build or application-wide provider is required. Dedicated component
 SSR/hydration and later spec features are outside this slice.
@@ -257,5 +261,4 @@ src/
 Keep distributed registry code independent of application routes and server
 implementations. Consumers should be able to install the components into other
 Solid applications without adopting TanStack Start or using Gurafu's hosted
-services. Provider integrations and credentials will be added with the data
-integration work.
+services. The keyless Spot adapter is website-only and requires no credentials.

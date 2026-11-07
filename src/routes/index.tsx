@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/solid-router";
+import { ClientOnly, createFileRoute } from "@tanstack/solid-router";
 import { Basics } from "@/components/examples/basics";
 import basicsSource from "@/components/examples/basics.tsx?raw";
 import { DataHistory } from "@/components/examples/data-history";
 import dataHistorySource from "@/components/examples/data-history.tsx?raw";
 import { NativePanes } from "@/components/examples/native-panes";
 import panesSource from "@/components/examples/native-panes.tsx?raw";
+import { ServiceHistory } from "@/components/examples/service-history";
+import serviceHistorySource from "@/components/examples/service-history.tsx?raw";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -13,6 +15,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
+  const app = Route.useRouteContext();
   return (
     <main class="mx-auto flex min-h-svh max-w-3xl flex-col justify-center gap-6 px-6 py-20">
       <h1 class="flex items-center gap-3 text-4xl font-semibold tracking-tight">
@@ -48,6 +51,17 @@ function Home() {
         </summary>
         <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
           <code>{dataHistorySource}</code>
+        </pre>
+      </details>
+      <ClientOnly fallback={<p role="status">Market history loads in your browser.</p>}>
+        <ServiceHistory app={app()} />
+      </ClientOnly>
+      <details class="text-sm">
+        <summary class="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2">
+          Read the service-backed history source
+        </summary>
+        <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <code>{serviceHistorySource}</code>
         </pre>
       </details>
       <div class="flex flex-wrap gap-3">
