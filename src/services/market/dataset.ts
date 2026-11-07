@@ -48,7 +48,12 @@ export function createMarketDataset(app: MarketApp, market: Accessor<Market>) {
             "Spot history is rate limited. Wait until the displayed retry time.",
             remaining,
           );
-        const handoff = { changes: new Map<number, Candle>(), overflow: false };
+        // Reconnect opens its journal before cancellation settles, since live
+        // corrections can arrive before Query starts this replacement request.
+        const handoff =
+          current.repair && current.handoff
+            ? current.handoff
+            : { changes: new Map<number, Candle>(), overflow: false };
         current.handoff = handoff;
         const repair = current.repair;
         current.repair = false;
@@ -91,6 +96,7 @@ export function createMarketDataset(app: MarketApp, market: Accessor<Market>) {
     const rows = app.queryClient.getQueryData<readonly Candle[]>(current.key);
     current.range = { from: rows?.at(-2)?.time ? (rows.at(-2)?.time ?? 0) * 1000 : undefined };
     current.repair = true;
+    current.handoff = { changes: new Map<number, Candle>(), overflow: false };
     // Explicit cancellation also replaces an initial, still-empty Query fetch.
     // Do not revert live cache writes made while that request was in flight.
     void app.queryClient

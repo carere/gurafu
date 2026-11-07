@@ -110,6 +110,25 @@ test("manual reconnect replaces an empty pending history request and buffers the
   await expect(chart.getByRole("button", { name: "Retry history" })).toBeEnabled();
 });
 
+test("a correction received immediately on reconnect survives the replacement tail response", async ({
+  page,
+}) => {
+  await page.goto("/?services21");
+  const chart = page.getByRole("region", { name: "Service history" }).first();
+  await page.evaluate(() => window.market21.resolve(0, [0, 1]));
+  await expect(chart.getByRole("status")).toContainText("2 candles");
+  await page.evaluate(() => {
+    window.market21.disconnect(0);
+    window.market21.reconnect(0);
+    // The socket can send a correction before Query starts the tail request.
+    window.market21.tick(0, 1, 777);
+  });
+  await expect.poll(() => page.evaluate(() => window.market21.requests())).toBe(2);
+  await page.evaluate(() => window.market21.resolve(1, [0, 1]));
+  await expect(chart.getByRole("button", { name: "Retry history" })).toBeEnabled();
+  await expect(chart.getByRole("status")).toContainText("2 candles · latest close 777");
+});
+
 declare global {
   interface Window {
     market21: {
