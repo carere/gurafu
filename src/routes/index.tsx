@@ -3,6 +3,8 @@ import { Basics } from "@/components/examples/basics";
 import basicsSource from "@/components/examples/basics.tsx?raw";
 import { DataHistory } from "@/components/examples/data-history";
 import dataHistorySource from "@/components/examples/data-history.tsx?raw";
+import { IndicatorsPanes } from "@/components/examples/indicators-panes";
+import indicatorsSource from "@/components/examples/indicators-panes.tsx?raw";
 import { NativePanes } from "@/components/examples/native-panes";
 import panesSource from "@/components/examples/native-panes.tsx?raw";
 import { ServiceHistory } from "@/components/examples/service-history";
@@ -42,6 +44,15 @@ function Home() {
         </summary>
         <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
           <code>{panesSource}</code>
+        </pre>
+      </details>
+      <IndicatorsPanes />
+      <details class="text-sm">
+        <summary class="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2">
+          Read the Indicators and panes source
+        </summary>
+        <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <code>{indicatorsSource}</code>
         </pre>
       </details>
       <DataHistory />

@@ -95,6 +95,7 @@ export type PaneController = ResourceController<IPaneApi<Time>>;
 export interface ChartController extends ResourceController<IChartApi> {
   goToTime(time: Time): void;
   goToLatest(): void;
+  requestIndicatorVisibility(id: string, visible: boolean): void;
 }
 export type RootProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, "onClick" | "onDblClick"> & {
   datasetKey?: string | number;
@@ -130,7 +131,13 @@ export type BarSeriesProps = StandardSeriesProps<"Bar">;
 export type BaselineSeriesProps = StandardSeriesProps<"Baseline">;
 export type HistogramSeriesProps = StandardSeriesProps<"Histogram">;
 
+type IndicatorInteraction = {
+  visibility: Accessor<Readonly<Record<string, boolean>>>;
+  set(id: string, visible: boolean | undefined): void;
+};
 type ChartScope = {
+  indicatorInteraction: Accessor<IndicatorInteraction | undefined>;
+  indicators: Map<string, { request(visible: boolean): void }>;
   data: Accessor<DataCoordinator | undefined>;
   controller: Accessor<ChartController | undefined>;
   api: Accessor<IChartApi | undefined>;
@@ -193,6 +200,25 @@ export function useSeries(): Accessor<StandardController<StandardSeriesType> | u
   return required(useContext(SeriesContext), "useSeries");
 }
 
+// Internal optional-item bridge, carrying no native handles or private store.
+// Optional declarations only observe managed display and visibility.
+/** @internal Shared with the optional registry item; not a consumer state API. */
+export function useIndicatorHost() {
+  const scope = required(useContext(ChartContext), "Indicator");
+  return {
+    displayed: (id: string) => scope.data()?.sources().get(id)?.displayed() ?? [],
+    interaction: scope.indicatorInteraction,
+    register(id: string, request: (visible: boolean) => void) {
+      if (scope.indicators.has(id)) throw new Error(`Duplicate chart-local indicator id: ${id}`);
+      const entry = { request };
+      scope.indicators.set(id, entry);
+      return () => {
+        if (scope.indicators.get(id) === entry) scope.indicators.delete(id);
+      };
+    },
+  };
+}
+
 // Clear refs synchronously before native removal, also when the callback changes.
 function bindRef<C>(readRef: Accessor<ApiRef<C> | undefined>, readValue: Accessor<C | undefined>) {
   let clear = () => {};
@@ -232,6 +258,8 @@ export function Root(props: RootProps) {
   const [controller, setController] = createSignal<ChartController>();
   const [nativeApi, setNativeApi] = createSignal<IChartApi>();
   const [data, setData] = createSignal<DataCoordinator>();
+  const [indicatorInteraction, setIndicatorInteraction] = createSignal<IndicatorInteraction>();
+  const indicators = new Map<string, { request(visible: boolean): void }>();
   const clearRef = bindRef(() => local.apiRef, controller);
   const owned = new Set<() => void>();
   let silencing = 0;
@@ -301,6 +329,8 @@ export function Root(props: RootProps) {
     });
   }
   const scope: ChartScope = {
+    indicatorInteraction,
+    indicators,
     data,
     controller,
     api: nativeApi,
@@ -325,14 +355,32 @@ export function Root(props: RootProps) {
     const [ready, setReady] = createSignal(true);
     // Fresh slice and nested graph per chart. No Solux provider shadows the app.
     const selectTime = createEvent<Time | null>("chart/pointerTime");
+    const indicatorVisibility = createEvent<{ id: string; visible: boolean | undefined }>(
+      "chart/indicatorVisibility",
+    );
     const store = configureStore({
       rootSlice: createSlice({
-        initialState: { pointer: { time: null as Time | null } },
+        initialState: {
+          pointer: { time: null as Time | null },
+          indicatorVisibility: {} as Record<string, boolean>,
+        },
         handlers: (builder) =>
-          builder.addHandler(selectTime, (state, event) => {
-            state.pointer.time = event.payload;
-          }),
+          builder
+            .addHandler(selectTime, (state, event) => {
+              state.pointer.time = event.payload;
+            })
+            .addHandler(indicatorVisibility, (state, event) => {
+              const { id, visible } = event.payload;
+              if (visible === undefined) delete state.indicatorVisibility[id];
+              else state.indicatorVisibility[id] = visible;
+            }),
       }),
+    });
+    setIndicatorInteraction({
+      visibility: () => store.state.indicatorVisibility,
+      set: (id, visible) => {
+        store.dispatch(indicatorVisibility({ id, visible }));
+      },
     });
     let active = true;
     const crosshair: MouseEventHandler<Time> = (event) => {
@@ -374,6 +422,12 @@ export function Root(props: RootProps) {
     const chartReady = () => ready() && coordinator.ready();
     const managed: ChartController = {
       ready: chartReady,
+      requestIndicatorVisibility(id, visible) {
+        if (!chartReady()) throw new Error("Chart resource is not ready or has been disposed");
+        const indicator = indicators.get(id);
+        if (!indicator) throw new Error(`Unknown or removed indicator: ${id}`);
+        indicator.request(visible);
+      },
       get api() {
         if (!chartReady()) throw new Error("Chart resource is not ready or has been disposed");
         return api;
@@ -423,6 +477,7 @@ export function Root(props: RootProps) {
       scale.unsubscribeVisibleTimeRangeChange(timeRange);
       scale.unsubscribeVisibleLogicalRangeChange(logicalRange);
       scale.unsubscribeSizeChange(size);
+      setIndicatorInteraction(undefined);
       store.dispose();
       for (const declaration of series) declaration.dispose();
       for (const declaration of panes) declaration.dispose();

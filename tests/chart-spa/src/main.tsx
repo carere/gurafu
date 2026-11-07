@@ -8,6 +8,8 @@ import { Basics } from "./basics-example";
 import { Composition19 } from "./composition-19";
 import { mountDataFixture } from "./data-fixture";
 import { DataHistory } from "./data-history";
+import { IndicatorsPanes } from "./indicators-example-22";
+import { mountIndicators22 } from "./indicators-fixture-22";
 import { Lifetimes19 } from "./lifetimes-19";
 import { NativePanes } from "./native-panes-example";
 import { Panes19 } from "./panes-19";
@@ -186,6 +188,8 @@ function Composition() {
   );
 }
 if (location.search.includes("services21")) render(() => <Services21 />, host);
+else if (location.search.includes("indicators-example22")) render(() => <IndicatorsPanes />, host);
+else if (location.search.includes("indicators22")) mountIndicators22(host);
 else if (location.search.includes("history")) render(() => <DataHistory />, host);
 else if (location.search.includes("data")) mountDataFixture(host);
 else

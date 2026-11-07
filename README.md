@@ -227,17 +227,70 @@ ranges. They never queue across contexts. Native viewport bounds still apply.
 `ready()` can be false during generation reconciliation and remains false after
 disposal; `hasData()` describes populated display, including zero values.
 
+### Optional price overlays
+
+The separately installed `chart-indicators` item depends on `chart` and adds
+`BollingerBands`, `SMA`, `calculateBollingerBands`, `calculateSMA` and their public
+parameter/result types. It adds no Effect, Query, TanStack or optional control UI.
+The generated item is `/r/kobalte/chart-indicators.json`; its core dependency uses
+the registry's hosted URL. Local acceptance serves both generated items together.
+
+```tsx
+import * as Indicators from "~/components/gurafu/indicators";
+
+<Chart.Pane id="price">
+  <Chart.CandlestickSeries id="candles" data={displayedCandles()} />
+  <Indicators.BollingerBands id="bands" source="candles" />
+  <Indicators.SMA id="sma" source="candles" />
+</Chart.Pane>;
+```
+
+Bands default to period **18**, multiplier **2**, population variance; SMA defaults
+to **20**. Both require a full uninterrupted window. OHLC defaults to close, with
+open/high/low/close/hl2/hlc3/ohlc4 selectors; single-value inputs use their value.
+Zero is populated, timestamp gaps continue, and explicit whitespace restarts
+warmup. Pure functions preserve one result timestamp per input and do not mutate
+inputs. Bands return a complete middle/upper/lower triple or whitespace.
+
+Instead of `source`, supply an exclusive readonly `data` snapshot using the pure
+result shapes. Supplied mode runs no calculation. Calculated mode sees only the
+chart-local managed display, including whitespace and live/replay changes; the
+application keeps recoverable history. Both modes retain compatible native lines
+through source/parameter/appearance changes. Nest inside an explicit Pane or set
+`pane` at Root. Logical ids count once per indicator; internal line ids reserve
+`<id>/middle`, `/upper`, `/lower` or `/sma` in the chart's series namespace.
+
+`visible` is authoritative. `chart.requestIndicatorVisibility(id, visible)` emits
+`onVisibleChange` and waits for a controlled value; a request may be declined or
+delayed. Otherwise `defaultVisible` initializes independent private per-chart
+visibility. Hiding keeps resources; unmounting removes them. Unknown/removed ids
+and disposed controllers fail clearly. No private store is a consumer API.
+
+Bands draw three solid 1px lines, green middle and raw-value rising blue/falling
+red outer segments. Flats retain direction (initially blue); whitespace breaks
+lines and resets direction. Scale inversion does not reverse colors. SMA is blue
+2px. `SMA.options` accepts native line options. Bands accepts native options under
+`options.middle/upper/lower`, plus `risingColor`/`fallingColor`; an explicit outer
+`color` selects a uniform color. Logical visibility takes precedence over native
+`options.visible`. Presentation changes do not recalculate numerical values.
+
+The readable [Indicators and panes example](src/components/examples/indicators-panes.tsx)
+shows parameter/price selectors, calculated/supplied Bands, visibility and a native
+volume pane. EMA, RSI, legends and selection widgets remain later spec tickets.
+
 ### Acceptance checks
 
 ```sh
 bunx playwright install chromium
+bun run test:indicators
 moon run gurafu:test-solux gurafu:test-market gurafu:test-chart
 ```
 
 `test-solux` probes the published package's opt-in DevTools protocol, detached
 nested RESET snapshots and repeated disposal. Its extension fake does not certify
 the actual Redux extension UI. `test-chart` generates registry JSON, uses the
-actual shadcn installer in an OS temporary directory outside the repository,
+actual shadcn installer for separate core-only and optional-first consumers in OS
+temporary directories outside the repository,
 installs declared published dependencies, compiles positive/negative public types
 with `skipLibCheck: false`, checks core without website dependencies before adding the website service test dependencies,
 builds a standalone Solid SPA, reports the single
