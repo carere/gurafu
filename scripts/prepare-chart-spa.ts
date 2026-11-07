@@ -8,6 +8,7 @@ import {
   verifyCoreOnly22,
   verifyOptionalWidgets24,
 } from "./prepare-indicators-22";
+import { prepareReplay25 } from "./prepare-replay-25";
 
 await rm(consumer, { recursive: true, force: true });
 await mkdir(consumer, { recursive: true });
@@ -53,6 +54,7 @@ await run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"], con
 await verifyCoreOnly22(consumer);
 await installIndicators22(consumer);
 await verifyOptionalWidgets24(consumer);
+await prepareReplay25(consumer);
 // These belong to the website example, never the registry dependency manifest.
 await run(
   [

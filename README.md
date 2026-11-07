@@ -426,7 +426,57 @@ deterministic effect/data replay or shared application timeline contract.
 The Indicators and panes example includes an explicit inspector toggle which
 remounts that chart, plus actual legend/selection controls.
 
-### Independent charts
+## Replay and UTC date controls
+
+Install `chart-replay-controls` or `chart-date-controls` independently through
+`https://gurafu.carere.dev/r/kobalte/<item>.json`. Each brings only the shared
+Zaidan-derived button/class sources and their published dependencies; neither
+needs Root, Lightweight Charts, Solux, Effect or Query.
+
+`ChartReplayControls` requires controlled `playing`, numeric `speed` and explicit
+`speeds`. `onPlayingChange`, `onSpeedChange`, `onStep` (forward only) and `onExit`
+are requests; a declined request leaves the rendered input unchanged.
+`disabled` and `canStep` describe readiness/end. `labels` and `formatSpeed`
+customize presentation. It owns no clock, archive, feed or data writer.
+
+`ChartDateControls` accepts `Date` `value`/`minDate`/`maxDate`, `disabled`,
+`onValueChange` and `onGoToLatest`. The native calendar input displays UTC dates;
+a selection requests midnight UTC, independent of the browser timezone. Bounds
+apply to UTC days. `labels` and `formatDate` localize the surrounding presentation;
+the browser localizes its calendar. The consumer decides whether to accept the
+request, converts it to chart time and loads matching data before navigation.
+
+The readable [Replay and date navigation example](src/components/examples/replay-date.tsx)
+and its [consumer session](src/components/examples/replay-session.ts) use the
+existing Effect ExchangeGateway, Query cache and scoped dataset. Play/pause,
+speed, forward step, rewind and dated seeks reveal coherent snapshot candles,
+volume and calculated/supplied SMA. Supplied SMA uses the exported calculator
+over the same revealed rows; no second indicator engine is introduced. Live
+historical replay excludes incomplete bars. Conflation starts off.
+
+Entry suspends only this dataset's history/live work. Seeks cancel obsolete Query
+requests, reject stale generations and clear previous revealed data while loading.
+Date navigation waits for reconciled model data and two browser frames, then
+checks current readiness/layout before using the existing native-preconditioned
+command. A hidden/unavailable layout gives a retry message; commands are not queued
+across dataset generations. Return to live repairs the retained Query tail before
+supplying the full current candle/volume/analysis snapshot and resetting controls.
+This is consumer coordination, not a native multi-series transaction or rollback.
+The bounded ten-page collector remains a limit on long disconnections.
+
+The explicit partial-hour demonstration is separately labelled deterministic
+fixture evidence. Only completed minute observations at 00:00 and 00:01 contribute
+at the 00:02 cutoff: O10/H14/L9/C11/V7. The later H99/V100 observation is excluded.
+It never derives partial values from a completed hourly candle. A distinct fixture
+dataset context prevents market navigation/selection from leaking into it.
+
+`tests/chart-replay-25.spec.ts` controls clock and fixture completions against the
+actual installed example. Preparation also creates separate first-install SPA
+consumers for each widget, with strict `skipLibCheck:false`, negative type cases,
+production builds and one Solid runtime. Existing core-only/optional-first gates
+remain in place.
+
+## Independent charts
 
 The homepage's [Independent charts source](src/components/examples/independent-charts.tsx)
 starts with BTCUSDT at 1m/5m and adds up to four chart instances. Each instance

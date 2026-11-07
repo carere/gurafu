@@ -7,6 +7,7 @@ import {
   createSignal,
   createUniqueId,
   onCleanup,
+  untrack,
 } from "solid-js";
 import type { MarketApp } from "./app";
 import {
@@ -20,7 +21,12 @@ import {
   type Page,
 } from "./exchange";
 
-export function createMarketDataset(app: MarketApp, market: Accessor<Market>) {
+export function createMarketDataset(
+  app: MarketApp,
+  market: Accessor<Market>,
+  lifecycle: { active?: Accessor<boolean> } = {},
+) {
+  const enabled = () => lifecycle.active?.() ?? true;
   const owner = createUniqueId();
   const [connection, setConnection] = createSignal<Connection>("connecting");
   const [retryAt, setRetryAt] = createSignal(0);
@@ -40,7 +46,7 @@ export function createMarketDataset(app: MarketApp, market: Accessor<Market>) {
     const current = session();
     return queryOptions({
       queryKey: current.key,
-      enabled: typeof window !== "undefined",
+      enabled: typeof window !== "undefined" && enabled(),
       queryFn: async ({ signal }) => {
         const remaining = retryAt() - Date.now();
         if (remaining > 0)
@@ -99,7 +105,7 @@ export function createMarketDataset(app: MarketApp, market: Accessor<Market>) {
     current.handoff = { changes: new Map<number, Candle>(), overflow: false };
     // Explicit cancellation also replaces an initial, still-empty Query fetch.
     // Do not revert live cache writes made while that request was in flight.
-    void app.queryClient
+    return app.queryClient
       .cancelQueries({ queryKey: current.key, exact: true }, { revert: false })
       .then(() => {
         if (alive && session() === current) return query.refetch();
@@ -112,8 +118,15 @@ export function createMarketDataset(app: MarketApp, market: Accessor<Market>) {
     });
   });
   createEffect(() => {
+    if (!enabled()) {
+      const current = untrack(session);
+      void app.queryClient.cancelQueries({ queryKey: current.key, exact: true }, { revert: false });
+    }
+  });
+  createEffect(() => {
     const current = session();
     retries();
+    if (!enabled()) return;
     setConnection("connecting");
     const abort = new AbortController();
     let active = true;
@@ -169,6 +182,11 @@ export function createMarketDataset(app: MarketApp, market: Accessor<Market>) {
     key: () => session().key.join(":"),
     rows: () => query.data ?? [],
     retryAt,
+    recoverLive() {
+      // Repair from the retained tail after suspension; live corrections received
+      // during recovery win REST overlap through the existing bounded journal.
+      return refetchTail(session());
+    },
     loadOlder() {
       const first = query.data?.[0];
       session().range = first ? { to: first.time * 1000 - 1 } : {};

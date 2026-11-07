@@ -93,6 +93,32 @@
         }
       ],
       "registryDependencies": ["https://gurafu.carere.dev/r/kobalte/chart-control-ui.json"]
+    },
+    {
+      "name": "chart-replay-controls",
+      "type": "registry:component",
+      "title": "Chart Replay Controls",
+      "files": [
+        {
+          "path": "src/registry/kobalte/chart/chart-replay-controls.tsx",
+          "target": "components/gurafu/chart-replay-controls.tsx",
+          "type": "registry:file"
+        }
+      ],
+      "registryDependencies": ["https://gurafu.carere.dev/r/kobalte/chart-control-ui.json"]
+    },
+    {
+      "name": "chart-date-controls",
+      "type": "registry:component",
+      "title": "Chart Date Controls",
+      "files": [
+        {
+          "path": "src/registry/kobalte/chart/chart-date-controls.tsx",
+          "target": "components/gurafu/chart-date-controls.tsx",
+          "type": "registry:file"
+        }
+      ],
+      "registryDependencies": ["https://gurafu.carere.dev/r/kobalte/chart-control-ui.json"]
     }
   ]
 }
