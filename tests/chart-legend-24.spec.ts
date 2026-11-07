@@ -74,6 +74,51 @@ test("missing/whitespace/future values never borrow, removal and context reset t
   expect(await read()).toMatchObject({ time: null, ohlc: null, volume: null });
 });
 
+test("latest displayed candle skips trailing whitespace only outside an active selection", async ({
+  page,
+}) => {
+  await page.goto("/?legend24");
+  await page.waitForFunction(() => window.legend24?.chart.ready());
+  const read = () => page.evaluate(() => window.legend24.model());
+  await page.evaluate(() => {
+    window.legend24.price.setData([
+      { time: "2026-01-01", open: 0, high: 0, low: 0, close: 0 },
+      { time: "2026-01-02" },
+    ]);
+  });
+  expect(await read()).toMatchObject({ time: "2026-01-01", ohlc: { close: 0 }, volume: null });
+  await page.evaluate(() => {
+    const f = window.legend24;
+    f.chart.setCrosshairPosition(0, "2026-01-02", f.price);
+  });
+  expect(await read()).toMatchObject({ time: "2026-01-02", ohlc: null, volume: { value: 0 } });
+  await expect(page.getByLabel("Controlled legend")).toContainText("C —");
+  await page.evaluate(() => {
+    const f = window.legend24;
+    f.chart.clearCrosshairPosition();
+    f.chart.api.timeScale().fitContent();
+  });
+  expect(await read()).toMatchObject({ time: "2026-01-01", ohlc: { close: 0 }, volume: null });
+  await page.waitForTimeout(80);
+  const surface = page.locator(".tv-lightweight-charts").first();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.legend24.chart.api.timeScale().timeToCoordinate("2026-01-02")),
+    )
+    .not.toBeNull();
+  const x = await page.evaluate(() =>
+    window.legend24.chart.api.timeScale().timeToCoordinate("2026-01-02"),
+  );
+  const bounds = await surface.boundingBox();
+  if (x === null || !bounds) throw new Error("Missing native surface");
+  await page.mouse.move(bounds.x + x, bounds.y + 190);
+  await expect.poll(read).toMatchObject({ time: "2026-01-02", ohlc: null, volume: { value: 0 } });
+  await page.mouse.move(bounds.x + bounds.width + 10, bounds.y + 190);
+  await expect.poll(read).toMatchObject({ time: "2026-01-01", ohlc: { close: 0 }, volume: null });
+  await page.evaluate(() => window.legend24.price.setData([{ time: "2026-01-02" }]));
+  expect(await read()).toMatchObject({ time: null, ohlc: null, volume: null });
+});
+
 test("hidden rows, independent defaults and standalone request-only selection never provision series", async ({
   page,
 }) => {

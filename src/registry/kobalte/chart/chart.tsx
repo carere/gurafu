@@ -347,7 +347,15 @@ export function useLegend(options: LegendOptions): Accessor<LegendModel> {
     const sources = scope.data()?.sources();
     const rows = sources?.get(options.priceSeries)?.displayed() ?? [];
     const selected = scope.indicatorInteraction()?.time();
-    const time = selected ?? rows.at(-1)?.time ?? null;
+    // Whitespace extends the timeline, but is not a displayed candle. Active
+    // selections still use their exact time, including an explicitly empty row.
+    let time = selected ?? null;
+    if (time === null)
+      for (let index = rows.length - 1; index >= 0; index--)
+        if ("close" in rows[index]) {
+          time = rows[index].time;
+          break;
+        }
     const exact = (id: string | undefined) =>
       id && time !== null
         ? (sources
