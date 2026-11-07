@@ -30,8 +30,8 @@ void day;
 Indicators.calculateSMA([{ time: 1700000000, value: 1 }]);
 // @ts-expect-error supplied single-value results are numeric or whitespace
 <Indicators.SMA id="wrong-result" data={[{ time: ts, value: "wrong" }]} />;
-// @ts-expect-error supplied Bands preserve native Time branding too
 <Indicators.BollingerBands
   id="wrong-time"
+  // @ts-expect-error supplied Bands preserve native Time branding too
   data={[{ time: 1700000000, middle: 1, upper: 2, lower: 0 }]}
 />;
