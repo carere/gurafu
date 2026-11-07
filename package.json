@@ -12,6 +12,7 @@
   "scripts": {
     "prepare": "lefthook install",
     "test:chart": "bun --bun shadcn build src/registry/kobalte/registry.json --output public/r/kobalte && bun scripts/prepare-chart-spa.ts && playwright test",
+    "test:indicators": "bun test tests/indicators-22.test.ts",
     "test:solux": "node --conditions=browser tests/solux-gate.mjs"
   },
   "dependencies": {

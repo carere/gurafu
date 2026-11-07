@@ -268,7 +268,15 @@ function createExtensions27() {
                 data={
                   patch()
                     ? []
-                    : [{ time: "2026-10-02", position: "aboveBar", color: "blue", shape: "circle" }]
+                    : [
+                        {
+                          time: "2026-10-02",
+                          position: "atPriceMiddle",
+                          price: 40,
+                          color: "blue",
+                          shape: "circle",
+                        },
+                      ]
                 }
                 options={{ autoScale: !patch(), zOrder: patch() ? "top" : "normal" }}
                 apiRef={(c) => {

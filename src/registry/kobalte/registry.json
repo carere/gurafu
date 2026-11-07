@@ -21,6 +21,25 @@
           "target": "components/gurafu/chart-data.ts"
         }
       ]
+    },
+    {
+      "name": "chart-indicators",
+      "type": "registry:component",
+      "title": "Chart indicators",
+      "description": "Optional calculated or supplied Bollinger Bands and price SMA overlays, with pure calculations.",
+      "registryDependencies": ["https://gurafu.carere.dev/r/kobalte/chart.json"],
+      "files": [
+        {
+          "path": "src/registry/kobalte/chart/indicators.tsx",
+          "type": "registry:file",
+          "target": "components/gurafu/indicators.tsx"
+        },
+        {
+          "path": "src/registry/kobalte/chart/indicator-calculations.ts",
+          "type": "registry:file",
+          "target": "components/gurafu/indicator-calculations.ts"
+        }
+      ]
     }
   ]
 }

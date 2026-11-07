@@ -119,7 +119,8 @@ export function ExtensionsLifecycle() {
                   : [
                       {
                         time: "2026-10-02",
-                        position: "inBar",
+                        position: "atPriceMiddle",
+                        price: 40,
                         shape: "circle",
                         color: alternate() ? "#0369a1" : "#d000d0",
                         text: "Peak",

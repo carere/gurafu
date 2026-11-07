@@ -94,6 +94,39 @@ test("owned custom series renders its actual custom values on nonzero native pan
       }),
     )
     .toBe(true);
+  // Custom fields have no native value/OHLC interpretation. Use the native
+  // explicit-price marker form and prove its pixels surround that price.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const f = window.extensions27,
+          pane = f.custom().api.getPane().getHTMLElement();
+        const x = f.chart().api.timeScale().timeToCoordinate("2026-10-02");
+        const y = f.custom().api.priceToCoordinate(40);
+        if (!pane || x === null || y === null) return false;
+        return [...pane.querySelectorAll("canvas")].some((canvas) => {
+          const context = canvas.getContext("2d");
+          if (!context) return false;
+          const ratio = canvas.width / canvas.clientWidth;
+          const pixels = context.getImageData(
+            Math.round(x * ratio) - 8,
+            Math.round(y * ratio) - 8,
+            16,
+            16,
+          ).data;
+          for (let i = 0; i < pixels.length; i += 4)
+            if (
+              pixels[i] === 0 &&
+              pixels[i + 1] === 0 &&
+              pixels[i + 2] === 255 &&
+              pixels[i + 3] === 255
+            )
+              return true;
+          return false;
+        });
+      }),
+    )
+    .toBe(true);
   await page.evaluate(() => {
     const f = window.extensions27;
     f.save();
@@ -170,6 +203,8 @@ test("empty and removed custom resources differ; cleanup invalidates refs before
   await expect
     .poll(() => page.evaluate(() => window.extensions27?.stats.series.ticks))
     .toBeGreaterThan(0);
+  await page.mouse.click(200, 100);
+  await expect.poll(() => page.evaluate(() => window.extensions27.stats.series.clicks)).toBe(1);
   await page.evaluate(() => {
     const f = window.extensions27;
     f.save();
@@ -230,7 +265,7 @@ test("empty and removed custom resources differ; cleanup invalidates refs before
       window.extensions27.stats.series.ticks,
       window.extensions27.stats.series.clicks,
     ]),
-  ).toEqual([ticks, 0]);
+  ).toEqual([ticks, 1]);
   await page.evaluate(() => window.extensions27.restore());
   await expect.poll(() => page.evaluate(() => window.extensions27?.stats.series.attach)).toBe(2);
   expect(
