@@ -1,4 +1,12 @@
-import type { CandlestickData, ISeriesApi, WhitespaceData } from "lightweight-charts";
+import type {
+  CandlestickData,
+  CreatePriceLineOptions,
+  DeepPartial,
+  ISeriesApi,
+  LineSeriesPartialOptions,
+  PriceScaleOptions,
+  WhitespaceData,
+} from "lightweight-charts";
 import { batch, createSignal, Show } from "solid-js";
 import { render } from "solid-js/web";
 import * as Chart from "~/components/gurafu/chart";
@@ -23,6 +31,9 @@ export function mountIndicators23(host: HTMLElement) {
   const [appearance, setAppearance] = createSignal(false);
   const [mounted, setMounted] = createSignal(true);
   const [pane, setPane] = createSignal(true);
+  const [options, setOptions] = createSignal<LineSeriesPartialOptions>({});
+  const [scaleOptions, setScaleOptions] = createSignal<DeepPartial<PriceScaleOptions>>({});
+  const [references, setReferences] = createSignal<readonly CreatePriceLineOptions[]>();
   const state = {
     chart: undefined as Chart.ChartController | undefined,
     sibling: undefined as Chart.ChartController | undefined,
@@ -39,6 +50,9 @@ export function mountIndicators23(host: HTMLElement) {
     setAppearance,
     setMounted,
     setPane,
+    setOptions,
+    setScaleOptions,
+    setReferences,
     calculateEMA: Indicators.calculateEMA,
     calculateRSI: Indicators.calculateRSI,
     switch(empty = false) {
@@ -78,7 +92,24 @@ export function mountIndicators23(host: HTMLElement) {
               onVisibleChange={(v) => state.requests.push(v)}
               options={{
                 title: "ema",
+                ...options(),
                 ...(appearance() ? { lineWidth: 3 as const, lineStyle: 2 as const } : {}),
+              }}
+            />
+            <Indicators.SMA
+              id="sma"
+              source="candles"
+              parameters={parameters()}
+              options={{ title: "sma", ...options() }}
+            />
+            <Indicators.BollingerBands
+              id="bands"
+              source="candles"
+              parameters={parameters()}
+              options={{
+                middle: { title: "bands-middle", ...options() },
+                upper: { title: "bands-upper", ...options() },
+                lower: { title: "bands-lower", ...options() },
               }}
             />
             <Chart.CandlestickSeries
@@ -137,6 +168,7 @@ export function mountIndicators23(host: HTMLElement) {
               defaultVisible
               options={{
                 title: "rsi",
+                ...options(),
                 ...(appearance()
                   ? {
                       lineWidth: 3 as const,
@@ -148,7 +180,7 @@ export function mountIndicators23(host: HTMLElement) {
               priceScaleOptions={
                 appearance()
                   ? { mode: 0, invertScale: true, scaleMargins: { top: 0, bottom: 0 } }
-                  : undefined
+                  : scaleOptions()
               }
               referenceLines={
                 appearance()
@@ -161,7 +193,7 @@ export function mountIndicators23(host: HTMLElement) {
                         axisLabelVisible: false,
                       },
                     ]
-                  : undefined
+                  : references()
               }
             />
           </Show>

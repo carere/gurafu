@@ -1,6 +1,7 @@
 import {
   type CreatePriceLineOptions,
   type DeepPartial,
+  type IPaneApi,
   type IPriceLine,
   type LineData,
   type LineSeriesPartialOptions,
@@ -8,6 +9,7 @@ import {
   LineType,
   PriceScaleMode,
   type PriceScaleOptions,
+  type Time,
   type WhitespaceData,
 } from "lightweight-charts";
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
@@ -89,6 +91,33 @@ const lineDefaults = {
   lineWidth: 1 as const,
 };
 
+// Defaults belong to each native lifetime. Later options remain native patches;
+// row colors retain explicit color changes when an unrelated field is patched.
+function linePresentation(
+  props: Declaration,
+  options: () => LineSeriesPartialOptions | undefined,
+  visible: () => boolean,
+  defaults: LineSeriesPartialOptions & { color: string },
+) {
+  const chosenColor = createMemo<{ id: string; color: string | undefined }>((previous) => ({
+    id: props.id,
+    color: options()?.color ?? (previous?.id === props.id ? previous.color : undefined),
+  }));
+  return {
+    customColor: createMemo(() => chosenColor().color),
+    color: createMemo(() => chosenColor().color ?? defaults.color),
+    initialize(current: LineSnapshotController | undefined) {
+      if (current)
+        current.api.applyOptions({
+          ...lineDefaults,
+          ...defaults,
+          ...untrack(options),
+          visible: untrack(visible),
+        });
+    },
+  };
+}
+
 // Ashiso's raw-sequence direction helper adapted to native lines: flat retains
 // direction, whitespace restarts it, and coordinates never determine direction.
 // Native simple-line colors belong to the OUTGOING segment, so write its color
@@ -125,17 +154,18 @@ export function SMA(props: SMAProps) {
       props.data ??
       calculateSMA(host.displayed(props.source) as readonly PriceRow[], props.parameters),
   );
-  const color = createMemo(() => props.options?.color ?? "#2196F3");
-  const rows = createMemo(() => lineRows(values(), color()));
+  const presentation = linePresentation(props, () => props.options, visible, {
+    lineWidth: 2,
+    color: "#2196F3",
+  });
+  const rows = createMemo(() => lineRows(values(), presentation.color()));
   return (
     <LineSeries
       id={`${props.id}/sma`}
       pane={props.pane}
       data={rows()}
+      apiRef={presentation.initialize}
       options={{
-        ...lineDefaults,
-        lineWidth: 2,
-        color: "#2196F3",
         ...props.options,
         visible: visible(),
       }}
@@ -153,17 +183,30 @@ export function BollingerBands(props: BollingerBandsProps) {
         props.parameters,
       ),
   );
-  const rising = createMemo(() => props.options?.risingColor ?? "#2196F3");
-  const falling = createMemo(() => props.options?.fallingColor ?? "#F55253");
+  const rising = createMemo<string>(
+    (previous) => props.options?.risingColor ?? previous,
+    "#2196F3",
+  );
+  const falling = createMemo<string>(
+    (previous) => props.options?.fallingColor ?? previous,
+    "#F55253",
+  );
+  const presentations = {
+    middle: linePresentation(props, () => props.options?.middle, visible, { color: "#4CAF50" }),
+    upper: linePresentation(props, () => props.options?.upper, visible, { color: "#2196F3" }),
+    lower: linePresentation(props, () => props.options?.lower, visible, { color: "#2196F3" }),
+  };
   const rows = (kind: "middle" | "upper" | "lower") => {
-    const color = createMemo(() => props.options?.[kind]?.color);
+    const presentation = presentations[kind];
     return createMemo(() =>
       lineRows(
         values().map((row) =>
           row.middle !== undefined ? { time: row.time, value: row[kind] } : { time: row.time },
         ),
-        color() ?? (kind === "middle" ? "#4CAF50" : "#2196F3"),
-        kind === "middle" || color() ? undefined : { rising: rising(), falling: falling() },
+        presentation.color(),
+        kind === "middle" || presentation.customColor()
+          ? undefined
+          : { rising: rising(), falling: falling() },
       ),
     );
   };
@@ -176,9 +219,8 @@ export function BollingerBands(props: BollingerBandsProps) {
         id={`${props.id}/middle`}
         pane={props.pane}
         data={middle()}
+        apiRef={presentations.middle.initialize}
         options={{
-          ...lineDefaults,
-          color: "#4CAF50",
           ...props.options?.middle,
           visible: visible(),
         }}
@@ -187,13 +229,15 @@ export function BollingerBands(props: BollingerBandsProps) {
         id={`${props.id}/upper`}
         pane={props.pane}
         data={upper()}
-        options={{ ...lineDefaults, color: "#2196F3", ...props.options?.upper, visible: visible() }}
+        apiRef={presentations.upper.initialize}
+        options={{ ...props.options?.upper, visible: visible() }}
       />
       <LineSeries
         id={`${props.id}/lower`}
         pane={props.pane}
         data={lower()}
-        options={{ ...lineDefaults, color: "#2196F3", ...props.options?.lower, visible: visible() }}
+        apiRef={presentations.lower.initialize}
+        options={{ ...props.options?.lower, visible: visible() }}
       />
     </>
   );
@@ -209,17 +253,18 @@ export function EMA(props: EMAProps) {
       props.data ??
       calculateEMA(host.displayed(props.source) as readonly PriceRow[], props.parameters),
   );
-  const color = createMemo(() => props.options?.color ?? "#FF9800");
-  const rows = createMemo(() => lineRows(values(), color()));
+  const presentation = linePresentation(props, () => props.options, visible, {
+    lineWidth: 2,
+    color: "#FF9800",
+  });
+  const rows = createMemo(() => lineRows(values(), presentation.color()));
   return (
     <LineSeries
       id={`${props.id}/ema`}
       pane={props.pane}
       data={rows()}
+      apiRef={presentation.initialize}
       options={{
-        ...lineDefaults,
-        lineWidth: 2,
-        color: "#FF9800",
         ...props.options,
         visible: visible(),
       }}
@@ -240,8 +285,12 @@ export function RSI(props: RSIProps) {
       props.data ??
       calculateRSI(host.displayed(props.source) as readonly PriceRow[], props.parameters),
   );
-  const color = createMemo(() => props.options?.color ?? "#9C27B0");
-  const rows = createMemo(() => lineRows(values(), color()));
+  const presentation = linePresentation(props, () => props.options, visible, {
+    lineWidth: 2,
+    color: "#9C27B0",
+    autoscaleInfoProvider: rsiRange,
+  });
+  const rows = createMemo(() => lineRows(values(), presentation.color()));
   const [controller, setController] = createSignal<LineSnapshotController>();
   // Price-line ownership follows the native series lifetime. Presentation
   // patches keep retained lines and never write data or restart calculation.
@@ -251,64 +300,83 @@ export function RSI(props: RSIProps) {
     // Capture while ready; managed accessors deliberately reject after
     // invalidation, but owned references must still detach during cleanup.
     const api = untrack(() => current.api);
-    const lines: IPriceLine[] = [];
+    const lines: { api: IPriceLine; visible: boolean }[] = [];
     createEffect(() => {
       const references = props.referenceLines ?? rsiReferences;
       while (lines.length > references.length) {
         const line = lines.pop();
-        if (line) api.removePriceLine(line);
+        if (line) api.removePriceLine(line.api);
       }
       references.forEach((reference, index) => {
-        const options = {
-          color: "#9C27B0",
-          lineWidth: 1 as const,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: true,
-          title: "",
-          axisLabelColor: "",
-          axisLabelTextColor: "",
-          ...reference,
-          lineVisible: visible() && (reference.lineVisible ?? true),
-        };
-        if (lines[index]) lines[index].applyOptions(options);
-        else lines.push(api.createPriceLine(options));
+        const lineVisible = reference.lineVisible ?? lines[index]?.visible ?? true;
+        const options = { ...reference, lineVisible: visible() && lineVisible };
+        if (lines[index]) {
+          lines[index].visible = lineVisible;
+          lines[index].api.applyOptions(options);
+        } else
+          lines.push({
+            visible: lineVisible,
+            api: api.createPriceLine({
+              color: "#9C27B0",
+              lineWidth: 1 as const,
+              lineStyle: LineStyle.Dashed,
+              axisLabelVisible: true,
+              title: "",
+              axisLabelColor: "",
+              axisLabelTextColor: "",
+              ...options,
+            }),
+          });
       });
     });
     onCleanup(() => {
-      for (const line of lines) api.removePriceLine(line);
+      for (const line of lines) api.removePriceLine(line.api);
     });
   });
   createEffect(() => {
     const current = controller();
-    if (!current?.ready()) return;
-    const options = props.priceScaleOptions;
-    // A native scale handle retains its original pane. Reacquire after the
-    // core's queued pane movement, including when the old pane is removed.
-    props.pane;
-    const apply = () => {
-      if (current.ready())
-        current.api.priceScale().applyOptions({
-          mode: PriceScaleMode.Normal,
-          autoScale: true,
-          scaleMargins: { top: 0, bottom: 0 },
-          ...options,
-        });
+    if (!current) return;
+    let pane: IPaneApi<Time> | undefined;
+    let scaleId: string | undefined;
+    let retained: DeepPartial<PriceScaleOptions> = {
+      mode: PriceScaleMode.Normal,
+      autoScale: true,
+      scaleMargins: { top: 0, bottom: 0 },
     };
-    apply();
-    const frame = requestAnimationFrame(apply);
-    onCleanup(() => cancelAnimationFrame(frame));
+    createEffect(() => {
+      if (!current.ready()) return;
+      const options = props.priceScaleOptions;
+      // A native scale handle retains its original pane. Reacquire after the
+      // core's queued pane movement, including when the old pane is removed.
+      props.pane;
+      props.options?.priceScaleId;
+      const apply = () => {
+        if (!current.ready()) return;
+        const currentPane = current.api.getPane();
+        const scale = current.api.priceScale();
+        const currentScaleId = current.api.options().priceScaleId;
+        if (pane !== currentPane || scaleId !== currentScaleId) scale.applyOptions(retained);
+        if (options) scale.applyOptions(options);
+        const applied = scale.options();
+        retained = { ...applied, scaleMargins: { ...applied.scaleMargins } };
+        pane = currentPane;
+        scaleId = currentScaleId;
+      };
+      apply();
+      const frame = requestAnimationFrame(apply);
+      onCleanup(() => cancelAnimationFrame(frame));
+    });
   });
   return (
     <LineSeries
       id={`${props.id}/rsi`}
       pane={props.pane}
       data={rows()}
-      apiRef={setController}
+      apiRef={(current) => {
+        presentation.initialize(current);
+        setController(current);
+      }}
       options={{
-        ...lineDefaults,
-        lineWidth: 2,
-        color: "#9C27B0",
-        autoscaleInfoProvider: rsiRange,
         ...props.options,
         visible: visible(),
       }}

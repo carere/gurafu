@@ -21,6 +21,13 @@ type Fixture = {
   setTarget(s: string): void;
   setMounted(v: boolean): void;
   setPane(v: boolean): void;
+  setOptions(options: import("lightweight-charts").LineSeriesPartialOptions): void;
+  setScaleOptions(
+    options: import("lightweight-charts").DeepPartial<
+      import("lightweight-charts").PriceScaleOptions
+    >,
+  ): void;
+  setReferences(options: readonly import("lightweight-charts").CreatePriceLineOptions[]): void;
   switch(empty?: boolean): void;
 };
 const near = (actual: number, expected: number) => {
@@ -375,4 +382,73 @@ test("readable optional set supports configurable EMA/RSI and equivalent supplie
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+test("optional native appearance patches preserve omitted fields without replacing displayed data", async ({
+  page,
+}) => {
+  expect(
+    await page.evaluate(() => {
+      const s = window.indicators23;
+      const names = ["ema", "rsi", "sma", "bands-middle", "bands-upper", "bands-lower"];
+      const lines = names.map((name) => s.line(name));
+      const references = s.line("rsi").priceLines();
+      let changes = 0;
+      const changed = () => changes++;
+      s.setOptions({
+        lineWidth: 4,
+        color: "#2468AC",
+        priceLineVisible: false,
+        autoscaleInfoProvider: () => ({ priceRange: { minValue: 10, maxValue: 90 } }),
+      });
+      s.setScaleOptions({ mode: 2, scaleMargins: { top: 0.15, bottom: 0.1 } });
+      s.setReferences([{ price: 20, color: "#13579B", lineWidth: 3, lineVisible: false }]);
+      for (const line of lines) line.subscribeDataChanged(changed);
+      s.setOptions({ lineStyle: 2 });
+      s.setScaleOptions({ invertScale: true });
+      s.setReferences([{ price: 25 }]);
+      s.chart.requestIndicatorVisibility("rsi", false);
+      s.chart.requestIndicatorVisibility("rsi", true);
+      for (const line of lines) line.unsubscribeDataChanged(changed);
+      const scale = s.line("rsi").priceScale().options();
+      const reference = references[0].options();
+      return {
+        changes,
+        retained: lines.every((line, index) => line === s.line(names[index])),
+        styles: lines.map((line) => {
+          const o = line.options();
+          return [o.lineWidth, o.lineStyle, o.color, o.priceLineVisible];
+        }),
+        rowColors: lines.map((line) => [
+          ...new Set(line.data().flatMap((row) => ("color" in row ? [row.color] : []))),
+        ]),
+        ranges: lines.map((line) => line.options().autoscaleInfoProvider?.(() => null)),
+        scale: [scale.mode, scale.invertScale, scale.scaleMargins],
+        reference: [reference.price, reference.color, reference.lineWidth, reference.lineVisible],
+      };
+    }),
+  ).toEqual({
+    changes: 0,
+    retained: true,
+    styles: Array(6).fill([4, 2, "#2468AC", false]),
+    rowColors: Array(6).fill(["#2468AC"]),
+    ranges: Array(6).fill({ priceRange: { minValue: 10, maxValue: 90 } }),
+    scale: [2, true, { top: 0.15, bottom: 0.1 }],
+    reference: [25, "#13579B", 3, false],
+  });
+  await page.evaluate(() => {
+    window.indicators23.setTarget("other");
+    window.indicators23.setPane(false);
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const rsi = window.indicators23.line("rsi");
+        const scale = rsi.priceScale().options();
+        return [rsi.getPane().paneIndex(), scale.mode, scale.invertScale, scale.scaleMargins];
+      }),
+    )
+    .toEqual([2, 2, true, { top: 0.15, bottom: 0.1 }]);
+  await page.evaluate(() => window.indicators23.setReferences([]));
+  expect(await page.evaluate(() => window.indicators23.line("rsi").priceLines().length)).toBe(0);
 });
