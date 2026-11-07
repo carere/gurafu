@@ -7,3 +7,9 @@ export const chartSpaDirectory = resolve(
   tmpdir(),
   `gurafu-chart-spa-${createHash("sha256").update(process.cwd()).digest("hex").slice(0, 12)}`,
 );
+
+// Isolate concurrent ticket worktrees on the same machine.
+export const chartSpaPort =
+  20000 +
+  (Number.parseInt(createHash("sha256").update(process.cwd()).digest("hex").slice(0, 4), 16) %
+    30000);

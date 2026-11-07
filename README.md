@@ -114,7 +114,7 @@ validates it before generating static JSON in `public/r/kobalte`, which is
 served at `/r/kobalte/registry.json`. Generated registry files are ignored by Git
 and rebuilt before development and production builds.
 
-The `chart` item currently installs `Root`, `Pane`, snapshot `CandlestickSeries`,
+The `chart` item currently installs `Root`, `Pane`, snapshot/incremental `CandlestickSeries`,
 scoped `useChart` / `usePane` / `useSeries` accessors and their controller/prop types.
 It pins Lightweight Charts **5.2.1**, published **@carere/solux 4.1.0**, and Solid
 **1.9.18**. Core has no Zaidan, Kobalte, TanStack or Effect dependency.
@@ -148,10 +148,55 @@ and layout reconciliation. Model readiness does not promise usable coordinates
 for hidden or zero-size containers. Consumers own dimensions and data recovery.
 
 The homepage's [Basics example](src/components/examples/basics.tsx) demonstrates
-snapshot replacement and empty display. The rest of the
-[accepted API](docs/design/public-api.md)—other series, pane movement/reorder,
-incremental data, dataset context/navigation, extensions and optional UI—is
-planned in [spec #17](https://github.com/carere/gurafu/issues/17).
+snapshot replacement and empty display. [Data and history](src/components/examples/data-history.tsx)
+provides independent snapshot and incremental variants with manually resolved
+fixture requests, out-of-order completion, retryable failure, context switching,
+live updates, corrections, pop and load-before-date navigation. The application
+keeps its recoverable history, merges pages with current live corrections, and
+rejects obsolete results before writing. These fixtures do not claim live-network
+integration. Other standard series, pane movement/reorder, extensions and optional
+UI remain with their tickets in [spec #17](https://github.com/carere/gurafu/issues/17).
+
+### Data authority and navigation
+
+An array `data` selects snapshot authority. Omit `data` for incremental authority,
+initially empty or seeded by `defaultData`. The two props are exclusive, and the
+snapshot controller has no managed data writer. Recreate the declaration to change
+modes intentionally. Incremental controllers retain native candlestick types and
+expose `setData(readonlyRows)`, `update(row, historicalUpdate?)` and `pop(count)`.
+Equal latest time replaces the complete bar; newer time appends. `setData([])`
+clears display while retaining resources. Each completed managed operation updates
+the private observable displayed source before notifying `onDataChange`, with the
+native scope (`pop` emits `update` only when it removes fulfilled bars).
+
+Historical `update(row, true)` requires an **existing populated bar in that target
+series**. A time present only in a sibling series or at target whitespace is
+insufficient: Lightweight Charts 5.2.1 can overwrite a following target bar in
+these sparse cases. Use replacement to insert unseen history. Gurafu does not
+validate membership, sort, deduplicate or repair caller data. Native
+`pop(count)` returns fulfilled bars newest first; whitespace/timeline points are
+not counted or necessarily removed. Native readback is not a lossless archive.
+Conflation stays off by default; opt-in active native conflation rejects
+historical correction, without an automatic option switch or fallback.
+
+`Root.datasetKey` accepts a reactive string/number, constant when omitted. A new
+key clears managed display and selection, reconciles current supplied inputs,
+and resets navigation while retaining compatible chart/pane/series/controller
+identities. `defaultData` seeds once per dataset context; later same-context seed
+changes are ignored. Supply matching keys/snapshots together. For async incremental
+initialization, seed empty and call `setData` once matching data and controllers
+are ready. Retained handles do not validate delayed responses: cancel or reject
+obsolete application work before invoking them.
+
+Same-context history replacement preserves a time anchor and zoom on the chart's
+union timeline, including sparse sibling data; removed anchors clamp to remaining
+data and empty data has no anchor. New bars follow latest only when already
+following. `chart.goToTime(time)` centers the native target (nearest native index
+when absent) at current zoom; `chart.goToLatest()` resumes latest navigation
+immediately. Both require current model readiness and non-null native layout/data
+ranges. They never queue across contexts. Native viewport bounds still apply.
+`ready()` can be false during generation reconciliation and remains false after
+disposal; `hasData()` describes populated display, including zero values.
 
 ### Acceptance checks
 
@@ -168,7 +213,7 @@ installs declared published dependencies, compiles positive/negative public type
 with `skipLibCheck: false`, builds a non-TanStack Solid SPA, reports the single
 Solid runtime and runs Chromium browser checks against that installed source.
 No local Solux build or application-wide provider is required. Dedicated component
-SSR/hydration and later spec features are outside this initial slice.
+SSR/hydration and later spec features are outside these ticket checks.
 
 ## Source layout
 

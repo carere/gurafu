@@ -7,13 +7,18 @@
       "name": "chart",
       "type": "registry:component",
       "title": "Chart",
-      "description": "Solid Root, explicit native Pane and snapshot CandlestickSeries with scoped lifecycle-aware controllers.",
+      "description": "Solid Root, native Pane, snapshot/incremental CandlestickSeries, dataset generations and time navigation with typed lifecycle-aware controllers.",
       "dependencies": ["lightweight-charts@5.2.1", "@carere/solux@4.1.0", "solid-js@1.9.18"],
       "files": [
         {
           "path": "src/registry/kobalte/chart/chart.tsx",
           "type": "registry:file",
           "target": "components/gurafu/chart.tsx"
+        },
+        {
+          "path": "src/registry/kobalte/chart/chart-data.ts",
+          "type": "registry:file",
+          "target": "components/gurafu/chart-data.ts"
         }
       ]
     }

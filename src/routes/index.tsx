@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/solid-router";
 import { Basics } from "@/components/examples/basics";
 import basicsSource from "@/components/examples/basics.tsx?raw";
+import { DataHistory } from "@/components/examples/data-history";
+import dataHistorySource from "@/components/examples/data-history.tsx?raw";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
@@ -26,6 +28,15 @@ function Home() {
         </summary>
         <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
           <code>{basicsSource}</code>
+        </pre>
+      </details>
+      <DataHistory />
+      <details class="text-sm">
+        <summary class="cursor-pointer underline-offset-4 hover:underline focus-visible:outline-2">
+          Read the Data and history source
+        </summary>
+        <pre class="mt-4 overflow-x-auto rounded-lg bg-muted p-4 text-xs">
+          <code>{dataHistorySource}</code>
         </pre>
       </details>
       <div class="flex flex-wrap gap-3">

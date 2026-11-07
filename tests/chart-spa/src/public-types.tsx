@@ -53,16 +53,14 @@ export function PublicTypes() {
         />
         <Chart.CandlestickSeries
           id="unbranded"
-          data={[
-            // @ts-expect-error Timestamps require the upstream seconds brand.
-            { time: 1790812800000, open: 1, high: 2, low: 0, close: 1 },
-          ]}
+          // @ts-expect-error Timestamps require the upstream seconds brand.
+          data={[{ time: 1790812800000, open: 1, high: 2, low: 0, close: 1 }]}
         />
         {/* @ts-expect-error Candlesticks need OHLC rather than line values. */}
         <Chart.CandlestickSeries id="wrong-data" data={[{ time: "2026-10-01", value: 42 }]} />
         {/* @ts-expect-error Line-only options are not candlestick options. */}
         <Chart.CandlestickSeries id="wrong-options" data={[]} options={{ lineWidth: 2 }} />
-        {/* @ts-expect-error This slice only ships snapshot composition. */}
+        {/* @ts-expect-error Snapshot and incremental data authority are exclusive. */}
         <Chart.CandlestickSeries id="wrong-mode" data={[]} defaultData={[]} />
       </Chart.Pane>
     </Chart.Root>

@@ -28,6 +28,7 @@ import {
   untrack,
   useContext,
 } from "solid-js";
+import { createDataCoordinator, createManagedData, type DataCoordinator } from "./chart-data";
 
 export type ApiRef<C> = (value: C | undefined) => void;
 export interface ResourceController<A> {
@@ -40,10 +41,36 @@ export interface SnapshotSeriesController<A> extends ResourceController<A> {
 export type CandlestickSnapshotController = SnapshotSeriesController<
   ISeriesApi<"Candlestick", Time>
 >;
-export type CandlestickController = CandlestickSnapshotController;
+export interface IncrementalSeriesController<A, D> extends SnapshotSeriesController<A> {
+  setData(data: readonly D[]): void;
+  update(item: D, historicalUpdate?: boolean): void;
+  pop(count: number): D[];
+}
+export type CandlestickIncrementalController = IncrementalSeriesController<
+  ISeriesApi<"Candlestick", Time>,
+  SeriesDataItemTypeMap<Time>["Candlestick"]
+>;
+export type CandlestickController =
+  | CandlestickSnapshotController
+  | CandlestickIncrementalController;
+export type SeriesDataProps<A, D> =
+  | {
+      data: readonly D[];
+      defaultData?: never;
+      apiRef?: ApiRef<SnapshotSeriesController<A>>;
+    }
+  | {
+      data?: never;
+      defaultData?: readonly D[];
+      apiRef?: ApiRef<IncrementalSeriesController<A, D>>;
+    };
 export type PaneController = ResourceController<IPaneApi<Time>>;
-export type ChartController = ResourceController<IChartApi>;
+export interface ChartController extends ResourceController<IChartApi> {
+  goToTime(time: Time): void;
+  goToLatest(): void;
+}
 export type RootProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, "onClick" | "onDblClick"> & {
+  datasetKey?: string | number;
   onCrosshairMove?: MouseEventHandler<Time>;
   onClick?: MouseEventHandler<Time>;
   onDblClick?: MouseEventHandler<Time>;
@@ -62,13 +89,12 @@ export type PaneProps = {
 export type CandlestickSeriesProps = {
   onDataChange?: DataChangedHandler;
   id: string;
-  data: readonly SeriesDataItemTypeMap<Time>["Candlestick"][];
   options?: SeriesPartialOptionsMap["Candlestick"];
-  apiRef?: ApiRef<CandlestickSnapshotController>;
   children?: JSX.Element;
-};
+} & SeriesDataProps<ISeriesApi<"Candlestick", Time>, SeriesDataItemTypeMap<Time>["Candlestick"]>;
 
 type ChartScope = {
+  data: Accessor<DataCoordinator | undefined>;
   controller: Accessor<ChartController | undefined>;
   api: Accessor<IChartApi | undefined>;
   own: (dispose: () => void) => () => void;
@@ -80,7 +106,7 @@ type PaneScope = {
   own: (dispose: () => void) => () => void;
 };
 const PaneContext = createContext<PaneScope>();
-const SeriesContext = createContext<Accessor<CandlestickSnapshotController | undefined>>();
+const SeriesContext = createContext<Accessor<CandlestickController | undefined>>();
 function resource<A>(api: A, ready: Accessor<boolean>): ResourceController<A> {
   return {
     get api() {
@@ -100,7 +126,7 @@ export function useChart(): Accessor<ChartController | undefined> {
 export function usePane(): Accessor<PaneController | undefined> {
   return required(useContext(PaneContext), "usePane").controller;
 }
-export function useSeries(): Accessor<CandlestickSnapshotController | undefined> {
+export function useSeries(): Accessor<CandlestickController | undefined> {
   return required(useContext(SeriesContext), "useSeries");
 }
 
@@ -126,6 +152,7 @@ function bindRef<C>(readRef: Accessor<ApiRef<C> | undefined>, readValue: Accesso
 
 export function Root(props: RootProps) {
   const [local, dom] = splitProps(props, [
+    "datasetKey",
     "children",
     "options",
     "containerProps",
@@ -140,10 +167,12 @@ export function Root(props: RootProps) {
   let surface!: HTMLDivElement;
   const [controller, setController] = createSignal<ChartController>();
   const [nativeApi, setNativeApi] = createSignal<IChartApi>();
+  const [data, setData] = createSignal<DataCoordinator>();
   const clearRef = bindRef(() => local.apiRef, controller);
   const owned = new Set<() => void>();
   let silencing = 0;
   const scope: ChartScope = {
+    data,
     controller,
     api: nativeApi,
     withoutEvents(dispose) {
@@ -202,11 +231,45 @@ export function Root(props: RootProps) {
     scale.subscribeVisibleTimeRangeChange(timeRange);
     scale.subscribeVisibleLogicalRangeChange(logicalRange);
     scale.subscribeSizeChange(size);
+    const coordinator = createDataCoordinator(
+      api,
+      () => local.datasetKey ?? "default",
+      () => {
+        store.dispatch(selectTime(null));
+      },
+    );
+    setData(coordinator);
+    const chartReady = () => ready() && coordinator.ready();
+    const managed: ChartController = {
+      ready: chartReady,
+      get api() {
+        if (!chartReady()) throw new Error("Chart resource is not ready or has been disposed");
+        return api;
+      },
+      goToTime(time) {
+        if (!chartReady()) throw new Error("Chart resource is not ready or has been disposed");
+        const scale = api.timeScale();
+        const range = scale.getVisibleLogicalRange();
+        const index = scale.timeToIndex(time, true);
+        if (!range || index === null || scale.width() <= 0)
+          throw new Error("Chart navigation requires data and a visible native layout");
+        const half = (range.to - range.from) / 2;
+        coordinator.restore({ time, offset: half, span: half * 2, following: false });
+      },
+      goToLatest() {
+        if (!chartReady()) throw new Error("Chart resource is not ready or has been disposed");
+        const scale = api.timeScale();
+        if (!scale.getVisibleLogicalRange() || scale.width() <= 0)
+          throw new Error("Chart navigation requires data and a visible native layout");
+        const view = coordinator.capture();
+        if (view) coordinator.restore({ ...view, following: true });
+      },
+    };
     setNativeApi(api);
     // Assembly uses the private native handle. Expose public readiness only
     // after Solid has reconciled the declared panes and their initial snapshots.
     queueMicrotask(() => {
-      if (active) setController(resource(api, ready));
+      if (active) setController(managed);
     });
     onCleanup(() => {
       active = false;
@@ -295,12 +358,20 @@ export function Pane(props: PaneProps) {
   return <PaneContext.Provider value={paneScope}>{props.children}</PaneContext.Provider>;
 }
 
-export function CandlestickSeries(props: CandlestickSeriesProps) {
+type CandlestickComponent = {
+  (props: Extract<CandlestickSeriesProps, { data: readonly unknown[] }>): JSX.Element;
+  (props: Extract<CandlestickSeriesProps, { data?: never }>): JSX.Element;
+};
+export const CandlestickSeries: CandlestickComponent = (props: CandlestickSeriesProps) => {
   const scope = required(useContext(ChartContext), "CandlestickSeries");
   const paneScope = required(useContext(PaneContext), "CandlestickSeries");
   const pane = paneScope.controller;
-  const [controller, setController] = createSignal<CandlestickSnapshotController>();
-  const clearRef = bindRef(() => props.apiRef, controller);
+  const [controller, setController] = createSignal<CandlestickController>();
+  const clearRef = bindRef(
+    () => props.apiRef as ApiRef<CandlestickController> | undefined,
+    controller,
+  );
+  const snapshot = props.data !== undefined;
   createEffect(() => {
     const chartApi = scope.api();
     const target = pane();
@@ -311,28 +382,26 @@ export function CandlestickSeries(props: CandlestickSeriesProps) {
       untrack(() => props.options),
       target.api.paneIndex(),
     );
-    const [ready, setReady] = createSignal(false);
-    const [hasData, setHasData] = createSignal(false);
-    let active = true;
-    const changed: DataChangedHandler = (change) => {
-      if (!active) return;
-      // Native data-change notification follows the completed data operation.
-      setHasData(api.data().some((row) => "close" in row));
-      setReady(true);
-      untrack(() => props.onDataChange?.(change));
-    };
-    api.subscribeDataChanged(changed);
-    setController(Object.assign(resource(api, ready), { hasData }));
-    createEffect(() => {
-      const rows = props.data;
-      setReady(false);
-      api.setData(
-        rows.map((row) => ({
-          ...row,
-          time: typeof row.time === "object" ? { ...row.time } : row.time,
-        })),
-      );
+    const data = createManagedData({
+      chart: chartApi,
+      api,
+      coordinator: required(untrack(scope.data), "CandlestickSeries data"),
+      id,
+      snapshot,
+      data: () => props.data,
+      defaultData: () => props.defaultData,
+      changed: () => props.onDataChange,
     });
+    const managed = Object.assign(resource(api, data.ready), { hasData: data.hasData });
+    setController(
+      snapshot
+        ? managed
+        : Object.assign(managed, {
+            setData: data.setData,
+            update: data.update,
+            pop: data.pop,
+          }),
+    );
     createEffect(() => {
       const options = props.options;
       if (options) api.applyOptions(options);
@@ -341,10 +410,7 @@ export function CandlestickSeries(props: CandlestickSeriesProps) {
     const dispose = () => {
       if (disposed) return;
       disposed = true;
-      active = false;
-      api.unsubscribeDataChanged(changed);
-      setReady(false);
-      setHasData(false);
+      data.dispose();
       clearRef();
       setController(undefined);
       scope.withoutEvents(() => chartApi.removeSeries(api));
@@ -359,4 +425,4 @@ export function CandlestickSeries(props: CandlestickSeriesProps) {
     void id;
   });
   return <SeriesContext.Provider value={controller}>{props.children}</SeriesContext.Provider>;
-}
+};
