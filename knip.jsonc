@@ -1,6 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip/schema.json",
-  "entry": ["src/registry/kobalte/chart/chart.tsx", "src/registry/kobalte/chart/indicators.tsx"],
+  "entry": [
+    "src/registry/kobalte/chart/chart.tsx",
+    "src/registry/kobalte/chart/indicators.tsx",
+    "src/registry/kobalte/chart/chart-legend.tsx",
+    "src/registry/kobalte/chart/chart-indicator-controls.tsx"
+  ],
   "project": ["src/**/*.{ts,tsx,css}", "*.ts"],
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [

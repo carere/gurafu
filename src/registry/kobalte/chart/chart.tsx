@@ -1,5 +1,6 @@
-import { configureStore, createEvent, createSlice } from "@carere/solux";
+import { configureStore, createEvent, createSlice, devtools } from "@carere/solux";
 import {
+  type BusinessDay,
   type ChartOptions,
   ColorType,
   type CustomData,
@@ -32,12 +33,14 @@ import {
   type SizeChangeEventHandler,
   type Time,
   type TimeRangeChangeEventHandler,
+  type UTCTimestamp,
   type WhitespaceData,
 } from "lightweight-charts";
 import {
   type Accessor,
   createContext,
   createEffect,
+  createMemo,
   createRoot,
   createSignal,
   getOwner,
@@ -104,11 +107,14 @@ export type HistogramIncrementalController = StandardIncrementalController<"Hist
 export type HistogramController = StandardController<"Histogram">;
 export type PaneController = ResourceController<IPaneApi<Time>>;
 export interface ChartController extends ResourceController<IChartApi> {
+  setCrosshairPosition(price: number, time: Time, series: SnapshotSeriesController<unknown>): void;
+  clearCrosshairPosition(): void;
   goToTime(time: Time): void;
   goToLatest(): void;
   requestIndicatorVisibility(id: string, visible: boolean): void;
 }
 export type RootProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, "onClick" | "onDblClick"> & {
+  devtools?: false | { name: string };
   datasetKey?: string | number;
   onCrosshairMove?: MouseEventHandler<Time>;
   onClick?: MouseEventHandler<Time>;
@@ -181,13 +187,43 @@ type ExtensionOwner = Set<() => void>;
 function disposeExtensions(extensions: ExtensionOwner) {
   for (const dispose of [...extensions]) dispose();
 }
+export type LegendValue = Readonly<{ value: number; color: string }>;
+export type LegendIndicator = Readonly<{
+  id: string;
+  label: string;
+  visible: boolean;
+  values: Readonly<Record<string, LegendValue | null>>;
+}>;
+export type LegendModel = Readonly<{
+  time: string | UTCTimestamp | Readonly<BusinessDay> | null;
+  ohlc: Readonly<{ open: number; high: number; low: number; close: number; color: string }> | null;
+  volume: LegendValue | null;
+  indicators: readonly LegendIndicator[];
+  count: number;
+}>;
+export type LegendOptions = { priceSeries: string; volumeSeries?: string };
+type IndicatorEntry = {
+  request(visible: boolean): void;
+  read?: (time: Time | null) => LegendIndicator;
+};
+type SeriesReader = {
+  controller: ResourceController<unknown>;
+  options: () => Record<string, unknown>;
+};
 type IndicatorInteraction = {
+  time: Accessor<Time | null>;
+  expanded: Accessor<Readonly<Record<string, boolean>>>;
+  expand(id: string, expanded: boolean | undefined): void;
   visibility: Accessor<Readonly<Record<string, boolean>>>;
   set(id: string, visible: boolean | undefined): void;
 };
 type ChartScope = {
   indicatorInteraction: Accessor<IndicatorInteraction | undefined>;
-  indicators: Map<string, { request(visible: boolean): void }>;
+  indicators: Map<string, IndicatorEntry>;
+  indicatorVersion: Accessor<number>;
+  changedIndicators(): void;
+  readers: Accessor<ReadonlyMap<string, SeriesReader>>;
+  setReader(id: string, reader: SeriesReader | undefined): void;
   data: Accessor<DataCoordinator | undefined>;
   controller: Accessor<ChartController | undefined>;
   api: Accessor<IChartApi | undefined>;
@@ -280,15 +316,92 @@ export function useIndicatorHost() {
       return source?.displayed() ?? [];
     },
     interaction: scope.indicatorInteraction,
-    register(id: string, request: (visible: boolean) => void) {
+    register(id: string, request: (visible: boolean) => void, read?: IndicatorEntry["read"]) {
       if (scope.indicators.has(id)) throw new Error(`Duplicate chart-local indicator id: ${id}`);
-      const entry = { request };
+      const entry = { request, read };
       scope.indicators.set(id, entry);
+      scope.changedIndicators();
       return () => {
-        if (scope.indicators.get(id) === entry) scope.indicators.delete(id);
+        if (scope.indicators.get(id) === entry) {
+          scope.indicators.delete(id);
+          scope.changedIndicators();
+        }
       };
     },
   };
+}
+
+// Calendar representations compare by native UTC identity, without nearest-bar lookup.
+function sameTime(a: Time, b: Time) {
+  const key = (t: Time) =>
+    typeof t === "number"
+      ? t
+      : typeof t === "string"
+        ? Date.parse(t) / 1000
+        : Date.UTC(t.year, t.month - 1, t.day) / 1000;
+  return key(a) === key(b);
+}
+export function useLegend(options: LegendOptions): Accessor<LegendModel> {
+  const scope = required(useContext(ChartContext), "useLegend");
+  return createMemo(() => {
+    const sources = scope.data()?.sources();
+    const rows = sources?.get(options.priceSeries)?.displayed() ?? [];
+    const selected = scope.indicatorInteraction()?.time();
+    const time = selected ?? rows.at(-1)?.time ?? null;
+    const exact = (id: string | undefined) =>
+      id && time !== null
+        ? (sources
+            ?.get(id)
+            ?.displayed()
+            .find((r) => sameTime(r.time, time)) as Record<string, unknown> | undefined)
+        : undefined;
+    const row = exact(options.priceSeries);
+    const priceOptions = scope.readers().get(options.priceSeries)?.options();
+    const ohlc =
+      row &&
+      typeof row.open === "number" &&
+      typeof row.high === "number" &&
+      typeof row.low === "number" &&
+      typeof row.close === "number"
+        ? {
+            open: row.open,
+            high: row.high,
+            low: row.low,
+            close: row.close,
+            color: String(
+              row.color ??
+                (row.close >= row.open ? priceOptions?.upColor : priceOptions?.downColor) ??
+                "currentColor",
+            ),
+          }
+        : null;
+    const volumeRow = exact(options.volumeSeries);
+    const volume =
+      volumeRow && typeof volumeRow.value === "number"
+        ? {
+            value: volumeRow.value,
+            color: String(
+              volumeRow.color ??
+                scope
+                  .readers()
+                  .get(options.volumeSeries ?? "")
+                  ?.options().color ??
+                "currentColor",
+            ),
+          }
+        : null;
+    scope.indicatorVersion();
+    const indicators = [...scope.indicators.values()].flatMap((entry) =>
+      entry.read ? [entry.read(time)] : [],
+    );
+    return {
+      time: time && typeof time === "object" ? { ...time } : time,
+      ohlc,
+      volume,
+      indicators,
+      count: indicators.filter((i) => i.visible).length,
+    };
+  });
 }
 
 // Clear refs synchronously before native removal, also when the callback changes.
@@ -314,6 +427,7 @@ function bindRef<C>(readRef: Accessor<ApiRef<C> | undefined>, readValue: Accesso
 export function Root(props: RootProps) {
   const [local, dom] = splitProps(props, [
     "datasetKey",
+    "devtools",
     "children",
     "options",
     "containerProps",
@@ -331,7 +445,9 @@ export function Root(props: RootProps) {
   const [nativeApi, setNativeApi] = createSignal<IChartApi>();
   const [data, setData] = createSignal<DataCoordinator>();
   const [indicatorInteraction, setIndicatorInteraction] = createSignal<IndicatorInteraction>();
-  const indicators = new Map<string, { request(visible: boolean): void }>();
+  const indicators = new Map<string, IndicatorEntry>();
+  const [indicatorVersion, setIndicatorVersion] = createSignal(0);
+  const [readers, setReaders] = createSignal<ReadonlyMap<string, SeriesReader>>(new Map());
   const clearRef = bindRef(() => local.apiRef, controller);
   const owned = new Set<() => void>();
   let silencing = 0;
@@ -403,6 +519,17 @@ export function Root(props: RootProps) {
   const scope: ChartScope = {
     indicatorInteraction,
     indicators,
+    indicatorVersion,
+    changedIndicators: () => setIndicatorVersion((v) => v + 1),
+    readers,
+    setReader(id, reader) {
+      setReaders((prior) => {
+        const next = new Map(prior);
+        if (reader) next.set(id, reader);
+        else next.delete(id);
+        return next;
+      });
+    },
     data,
     controller,
     api: nativeApi,
@@ -426,20 +553,36 @@ export function Root(props: RootProps) {
     const api = createChart(surface, local.options);
     const [ready, setReady] = createSignal(true);
     // Fresh slice and nested graph per chart. No Solux provider shadows the app.
-    const selectTime = createEvent<Time | null>("chart/pointerTime");
+    const selectTime = createEvent<{
+      time: Time | null;
+      seriesId: string | null;
+      hadPoint: boolean;
+    }>("chart/pointerTime");
     const indicatorVisibility = createEvent<{ id: string; visible: boolean | undefined }>(
       "chart/indicatorVisibility",
     );
+    const legendExpansion = createEvent<{ id: string; expanded: boolean | undefined }>(
+      "chart/legendExpansion",
+    );
     const store = configureStore({
+      enhancers: local.devtools
+        ? [devtools({ name: local.devtools.name, instanceId: `gurafu:${crypto.randomUUID()}` })]
+        : [],
       rootSlice: createSlice({
         initialState: {
-          pointer: { time: null as Time | null },
+          pointer: { time: null as Time | null, seriesId: null as string | null, hadPoint: false },
           indicatorVisibility: {} as Record<string, boolean>,
+          legendExpansion: {} as Record<string, boolean>,
         },
         handlers: (builder) =>
           builder
+            .addHandler(legendExpansion, (state, event) => {
+              const { id, expanded } = event.payload;
+              if (expanded === undefined) delete state.legendExpansion[id];
+              else state.legendExpansion[id] = expanded;
+            })
             .addHandler(selectTime, (state, event) => {
-              state.pointer.time = event.payload;
+              state.pointer = event.payload;
             })
             .addHandler(indicatorVisibility, (state, event) => {
               const { id, visible } = event.payload;
@@ -448,7 +591,22 @@ export function Root(props: RootProps) {
             }),
       }),
     });
+    function select(time: Time | null, seriesId: string | null = null) {
+      const rows = seriesId ? data()?.sources().get(seriesId)?.displayed() : undefined;
+      store.dispatch(
+        selectTime({
+          time: time && typeof time === "object" ? { ...time } : time,
+          seriesId,
+          hadPoint: time !== null && (rows?.some((r) => sameTime(r.time, time)) ?? false),
+        }),
+      );
+    }
     setIndicatorInteraction({
+      time: () => store.state.pointer.time,
+      expanded: () => store.state.legendExpansion,
+      expand: (id, expanded) => {
+        store.dispatch(legendExpansion({ id, expanded }));
+      },
       visibility: () => store.state.indicatorVisibility,
       set: (id, visible) => {
         store.dispatch(indicatorVisibility({ id, visible }));
@@ -457,8 +615,18 @@ export function Root(props: RootProps) {
     let active = true;
     const crosshair: MouseEventHandler<Time> = (event) => {
       if (!active || silencing) return;
+      // Native data/appearance recomputation also emits crosshair notifications.
+      // Only an actual pointer event (or leave) owns pointer intent; restoring
+      // private settings must not feed the prior native position back into it.
+      if (event.time !== undefined && !event.sourceEvent) return;
       const time = event.time;
-      store.dispatch(selectTime(time && typeof time === "object" ? { ...time } : (time ?? null)));
+      const seriesId =
+        [...readers()].find(
+          ([, reader]) =>
+            reader.controller.ready() &&
+            event.seriesData.has(reader.controller.api as ISeriesApi<StandardSeriesType, Time>),
+        )?.[0] ?? null;
+      select(time ?? null, seriesId);
       untrack(() => local.onCrosshairMove?.(event));
     };
     const click: MouseEventHandler<Time> = (event) => {
@@ -487,13 +655,46 @@ export function Root(props: RootProps) {
       api,
       () => local.datasetKey ?? "default",
       () => {
-        store.dispatch(selectTime(null));
+        select(null);
       },
     );
     setData(coordinator);
+    createEffect(() => {
+      const { time, seriesId, hadPoint } = store.state.pointer;
+      const rows = seriesId ? coordinator.sources().get(seriesId)?.displayed() : undefined;
+      if (
+        time !== null &&
+        hadPoint &&
+        !rows?.some((row) => sameTime(row.time, time)) &&
+        !coordinator.switching()
+      ) {
+        scope.withoutEvents(() => api.clearCrosshairPosition());
+        select(null);
+      }
+    });
     const chartReady = () => ready() && coordinator.ready();
     const managed: ChartController = {
       ready: chartReady,
+      setCrosshairPosition(price, time, seriesController) {
+        if (!chartReady()) throw new Error("Chart resource is not ready or has been disposed");
+        const entry = [...readers()].find(([, r]) => r.controller === seriesController);
+        const reader = entry?.[1];
+        if (!reader || !seriesController.ready())
+          throw new Error("Crosshair target is not a live series owned by this chart");
+        scope.withoutEvents(() =>
+          api.setCrosshairPosition(
+            price,
+            time,
+            seriesController.api as ISeriesApi<StandardSeriesType, Time>,
+          ),
+        );
+        select(time, entry?.[0] ?? null);
+      },
+      clearCrosshairPosition() {
+        if (!chartReady()) throw new Error("Chart resource is not ready or has been disposed");
+        scope.withoutEvents(() => api.clearCrosshairPosition());
+        select(null);
+      },
       requestIndicatorVisibility(id, visible) {
         if (!chartReady()) throw new Error("Chart resource is not ready or has been disposed");
         const indicator = indicators.get(id);
@@ -574,6 +775,11 @@ export function Root(props: RootProps) {
     <ChartContext.Provider value={scope}>
       <div
         {...dom}
+        style={
+          typeof dom.style === "string"
+            ? `position:relative;${dom.style}`
+            : { position: "relative", ...dom.style }
+        }
         ref={(el) => {
           outer = el;
           if (typeof dom.ref === "function") dom.ref(el);
@@ -761,6 +967,17 @@ function ManagedSeries<D extends { time: Time }, O, A extends ManagedNative<D, O
                   pop: data.pop,
                 }),
           );
+          scope.setReader(id, {
+            controller: managed,
+            options: () => {
+              // Track native patch requests, then read retained native appearance.
+              const patch = props.options;
+              return {
+                ...(api as unknown as ISeriesApi<StandardSeriesType, Time>).options(),
+                ...patch,
+              };
+            },
+          });
           createEffect(() => {
             const options = props.options;
             if (options) api.applyOptions(options);
@@ -770,6 +987,7 @@ function ManagedSeries<D extends { time: Time }, O, A extends ManagedNative<D, O
             active = false;
             disposeRoot();
             data.dispose();
+            scope.setReader(id, undefined);
             disposeExtensions(extensions);
             owned.dispose?.();
             if (untrack(controller) === managed) {

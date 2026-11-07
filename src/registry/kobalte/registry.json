@@ -40,6 +40,59 @@
           "target": "components/gurafu/indicator-calculations.ts"
         }
       ]
+    },
+    {
+      "name": "chart-control-ui",
+      "type": "registry:component",
+      "title": "Chart Control Ui",
+      "files": [
+        {
+          "path": "src/registry/kobalte/chart/chart-control-button.tsx",
+          "type": "registry:file",
+          "target": "components/gurafu/chart-control-button.tsx"
+        },
+        {
+          "path": "src/registry/kobalte/chart/chart-control-utils.ts",
+          "type": "registry:file",
+          "target": "components/gurafu/chart-control-utils.ts"
+        }
+      ],
+      "dependencies": [
+        "class-variance-authority@0.7.1",
+        "clsx@2.1.1",
+        "tailwind-merge@3.7.0",
+        "solid-js@1.9.18"
+      ],
+      "description": "Shared Zaidan-derived native button presentation and class utilities for optional chart controls."
+    },
+    {
+      "name": "chart-legend",
+      "type": "registry:component",
+      "title": "Chart Legend",
+      "files": [
+        {
+          "path": "src/registry/kobalte/chart/chart-legend.tsx",
+          "target": "components/gurafu/chart-legend.tsx",
+          "type": "registry:file"
+        }
+      ],
+      "registryDependencies": [
+        "https://gurafu.carere.dev/r/kobalte/chart.json",
+        "https://gurafu.carere.dev/r/kobalte/chart-control-ui.json"
+      ]
+    },
+    {
+      "name": "chart-indicator-controls",
+      "type": "registry:component",
+      "title": "Chart Indicator Controls",
+      "files": [
+        {
+          "path": "src/registry/kobalte/chart/chart-indicator-controls.tsx",
+          "target": "components/gurafu/chart-indicator-controls.tsx",
+          "type": "registry:file"
+        }
+      ],
+      "registryDependencies": ["https://gurafu.carere.dev/r/kobalte/chart-control-ui.json"]
     }
   ]
 }

@@ -13,7 +13,12 @@ import {
   type WhitespaceData,
 } from "lightweight-charts";
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
-import { LineSeries, type LineSnapshotController, useIndicatorHost } from "./chart";
+import {
+  type LegendIndicator,
+  LineSeries,
+  type LineSnapshotController,
+  useIndicatorHost,
+} from "./chart";
 import {
   type BollingerBandsParameters,
   type BollingerBandsValue,
@@ -64,26 +69,34 @@ export type BollingerBandsProps = Declaration &
       fallingColor?: string;
     };
   };
-function visibility(props: Declaration, host: ReturnType<typeof useIndicatorHost>) {
+function visibility(
+  props: Declaration,
+  host: ReturnType<typeof useIndicatorHost>,
+  read: (time: Time | null) => LegendIndicator,
+) {
+  const initialVisible = createMemo(() => {
+    props.id;
+    return untrack(() => props.defaultVisible ?? true);
+  });
   createEffect(() => {
     const id = props.id;
-    const release = host.register(id, (value) => {
-      if (props.visible === undefined) host.interaction()?.set(id, value);
-      props.onVisibleChange?.(value);
-    });
+    const release = host.register(
+      id,
+      (value) => {
+        if (props.visible === undefined) host.interaction()?.set(id, value);
+        props.onVisibleChange?.(value);
+      },
+      read,
+    );
     onCleanup(release);
     createEffect(() => {
       const interaction = host.interaction();
       if (!interaction) return;
-      interaction.set(
-        id,
-        untrack(() => props.defaultVisible ?? true),
-      );
+      interaction.set(id, untrack(initialVisible));
       onCleanup(() => interaction.set(id, undefined));
     });
   });
-  return () =>
-    props.visible ?? host.interaction()?.visibility()[props.id] ?? props.defaultVisible ?? true;
+  return () => props.visible ?? host.interaction()?.visibility()[props.id] ?? initialVisible();
 }
 const lineDefaults = {
   lineStyle: LineStyle.Solid,
@@ -146,9 +159,44 @@ function lineRows(
     return result;
   });
 }
+// Legend colors describe the INCOMING raw-value direction. Native rows carry
+// outgoing segment colors and therefore cannot be used for this read model.
+function exactValue(
+  rows: readonly IndicatorValue[],
+  time: Time | null,
+  color: string,
+  direction?: { rising: string; falling: string },
+) {
+  const key = (t: Time) =>
+    typeof t === "number"
+      ? t
+      : typeof t === "string"
+        ? Date.parse(t) / 1000
+        : Date.UTC(t.year, t.month - 1, t.day) / 1000;
+  let previous: number | undefined;
+  let incoming = direction?.rising ?? color;
+  for (const row of rows) {
+    if (!("value" in row)) {
+      previous = undefined;
+      incoming = direction?.rising ?? color;
+    } else {
+      if (direction && previous !== undefined && row.value !== previous)
+        incoming = row.value > previous ? direction.rising : direction.falling;
+      previous = row.value;
+    }
+    if (time !== null && key(row.time) === key(time))
+      return !("value" in row) ? null : { value: row.value, color: incoming };
+  }
+  return null;
+}
 export function SMA(props: SMAProps) {
   const host = useIndicatorHost();
-  const visible = visibility(props, host);
+  const visible = visibility(props, host, (time) => ({
+    id: props.id,
+    label: "Price SMA",
+    visible: visible(),
+    values: { value: exactValue(values(), time, presentation.color()) },
+  }));
   const values = createMemo(
     () =>
       props.data ??
@@ -174,7 +222,26 @@ export function SMA(props: SMAProps) {
 }
 export function BollingerBands(props: BollingerBandsProps) {
   const host = useIndicatorHost();
-  const visible = visibility(props, host);
+  const visible = visibility(props, host, (time) => ({
+    id: props.id,
+    label: "Bollinger Bands",
+    visible: visible(),
+    values: Object.fromEntries(
+      (["middle", "upper", "lower"] as const).map((kind) => [
+        kind,
+        exactValue(
+          values().map((row) =>
+            row.middle === undefined ? { time: row.time } : { time: row.time, value: row[kind] },
+          ),
+          time,
+          presentations[kind].color(),
+          kind === "middle" || presentations[kind].customColor()
+            ? undefined
+            : { rising: rising(), falling: falling() },
+        ),
+      ]),
+    ),
+  }));
   const values = createMemo(
     () =>
       props.data ??
@@ -247,7 +314,12 @@ export function BollingerBands(props: BollingerBandsProps) {
 // like SMA/Bands: corrections, rewind and context changes retain no future seed.
 export function EMA(props: EMAProps) {
   const host = useIndicatorHost();
-  const visible = visibility(props, host);
+  const visible = visibility(props, host, (time) => ({
+    id: props.id,
+    label: "Price EMA",
+    visible: visible(),
+    values: { value: exactValue(values(), time, presentation.color()) },
+  }));
   const values = createMemo(
     () =>
       props.data ??
@@ -279,7 +351,12 @@ const rsiReferences: readonly CreatePriceLineOptions[] = [{ price: 30 }, { price
 
 export function RSI(props: RSIProps) {
   const host = useIndicatorHost();
-  const visible = visibility(props, host);
+  const visible = visibility(props, host, (time) => ({
+    id: props.id,
+    label: "RSI",
+    visible: visible(),
+    values: { value: exactValue(values(), time, presentation.color()) },
+  }));
   const values = createMemo(
     () =>
       props.data ??

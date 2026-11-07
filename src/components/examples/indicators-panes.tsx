@@ -1,6 +1,8 @@
 import type { CandlestickData } from "lightweight-charts";
-import { createMemo, createSignal, For } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import * as Chart from "@/registry/kobalte/chart/chart";
+import { ChartIndicatorControls } from "@/registry/kobalte/chart/chart-indicator-controls";
+import { ChartLegend } from "@/registry/kobalte/chart/chart-legend";
 import * as Indicators from "@/registry/kobalte/chart/indicators";
 
 // Illustrative daily prices, supplied by the application. There is no feed or
@@ -33,6 +35,8 @@ const inputs: readonly Indicators.PriceInput[] = [
 ];
 
 export function IndicatorsPanes() {
+  const [selection, setSelection] = createSignal<readonly string[]>(["bands", "sma", "ema", "rsi"]);
+  const [inspect, setInspect] = createSignal(false);
   const [period, setPeriod] = createSignal(18);
   const [multiplier, setMultiplier] = createSignal(2);
   const [smaPeriod, setSmaPeriod] = createSignal(20);
@@ -92,7 +96,13 @@ export function IndicatorsPanes() {
             value={period()}
             onChange={(e) => setPeriod(Number(e.currentTarget.value))}
           >
-            <For each={[3, 10, 18, 20]}>{(n) => <option value={n}>{n}</option>}</For>
+            <For each={[3, 10, 18, 20]}>
+              {(n) => (
+                <option value={n} selected={n === period()}>
+                  {n}
+                </option>
+              )}
+            </For>
           </select>
         </label>
         <label class="grid gap-1 text-sm">
@@ -102,7 +112,13 @@ export function IndicatorsPanes() {
             value={multiplier()}
             onChange={(e) => setMultiplier(Number(e.currentTarget.value))}
           >
-            <For each={[0, 1, 2, 3]}>{(n) => <option value={n}>{n}</option>}</For>
+            <For each={[0, 1, 2, 3]}>
+              {(n) => (
+                <option value={n} selected={n === multiplier()}>
+                  {n}
+                </option>
+              )}
+            </For>
           </select>
         </label>
         <label class="grid gap-1 text-sm">
@@ -112,7 +128,13 @@ export function IndicatorsPanes() {
             value={smaPeriod()}
             onChange={(e) => setSmaPeriod(Number(e.currentTarget.value))}
           >
-            <For each={[3, 10, 20]}>{(n) => <option value={n}>{n}</option>}</For>
+            <For each={[3, 10, 20]}>
+              {(n) => (
+                <option value={n} selected={n === smaPeriod()}>
+                  {n}
+                </option>
+              )}
+            </For>
           </select>
         </label>
         <label class="grid gap-1 text-sm">
@@ -122,7 +144,13 @@ export function IndicatorsPanes() {
             value={emaPeriod()}
             onChange={(e) => setEmaPeriod(Number(e.currentTarget.value))}
           >
-            <For each={[3, 10, 20]}>{(n) => <option value={n}>{n}</option>}</For>
+            <For each={[3, 10, 20]}>
+              {(n) => (
+                <option value={n} selected={n === emaPeriod()}>
+                  {n}
+                </option>
+              )}
+            </For>
           </select>
         </label>
         <label class="grid gap-1 text-sm">
@@ -132,7 +160,13 @@ export function IndicatorsPanes() {
             value={rsiPeriod()}
             onChange={(e) => setRsiPeriod(Number(e.currentTarget.value))}
           >
-            <For each={[3, 7, 14]}>{(n) => <option value={n}>{n}</option>}</For>
+            <For each={[3, 7, 14]}>
+              {(n) => (
+                <option value={n} selected={n === rsiPeriod()}>
+                  {n}
+                </option>
+              )}
+            </For>
           </select>
         </label>
         <label class="grid gap-1 text-sm">
@@ -143,7 +177,11 @@ export function IndicatorsPanes() {
             onChange={(e) => setPriceInput(e.currentTarget.value as Indicators.PriceInput)}
           >
             <For each={inputs}>
-              {(input) => <option value={input}>{input.toUpperCase()}</option>}
+              {(input) => (
+                <option value={input} selected={input === priceInput()}>
+                  {input.toUpperCase()}
+                </option>
+              )}
             </For>
           </select>
         </label>
@@ -190,49 +228,92 @@ export function IndicatorsPanes() {
           Supply precomputed SMA, EMA and RSI
         </label>
       </div>
-      <Chart.Root
-        class="w-full"
-        style={{ height: "480px" }}
-        role="region"
-        aria-label="Bollinger Bands, price SMA, EMA, volume and RSI"
-        options={{
-          ...Chart.lightChartOptions,
-          autoSize: true,
-          layout: { ...Chart.lightChartOptions.layout, panes: { enableResize: true } },
-        }}
-      >
-        <Chart.Pane id="price">
-          <Chart.CandlestickSeries id="candles" data={candles} />
-          <Indicators.BollingerBands
-            id="bands"
-            {...bandsInput()}
-            visible={visible()}
-            onVisibleChange={setVisible}
-          />
-          <Indicators.SMA id="sma" {...smaInput()} />
-          <Indicators.EMA
-            id="ema"
-            {...emaInput()}
-            visible={emaVisible()}
-            onVisibleChange={setEmaVisible}
-          />
-        </Chart.Pane>
-        <Chart.Pane id="volume" stretchFactor={0.25}>
-          <Chart.HistogramSeries
-            id="volume"
-            data={volume}
-            options={{ priceFormat: { type: "volume" } }}
-          />
-        </Chart.Pane>
-        <Chart.Pane id="rsi" stretchFactor={0.4}>
-          <Indicators.RSI
-            id="rsi"
-            {...rsiInput()}
-            visible={rsiVisible()}
-            onVisibleChange={setRsiVisible}
-          />
-        </Chart.Pane>
-      </Chart.Root>
+      <ChartIndicatorControls
+        label="Mounted indicators"
+        items={[
+          { value: "bands", label: "Bollinger Bands" },
+          { value: "sma", label: "Price SMA" },
+          { value: "ema", label: "Price EMA" },
+          { value: "rsi", label: "RSI" },
+        ]}
+        value={selection()}
+        onValueChange={setSelection}
+      />
+      <label class="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={inspect()}
+          onChange={(e) => setInspect(e.currentTarget.checked)}
+        />
+        Inspect this chart with Redux DevTools (remounts the chart)
+      </label>
+      <p class="max-w-prose text-sm text-muted-foreground">
+        Selection mounts declarations; legend buttons request visibility without unmounting. The
+        inspector is optional and requires the browser extension. Restore changes private settings
+        only; application-controlled visibility and market data stay authoritative.
+      </p>
+      <For each={[inspect()]}>
+        {(enabled) => (
+          <Chart.Root
+            devtools={enabled ? { name: "Indicators and panes" } : false}
+            class="w-full"
+            style={{ height: "480px" }}
+            role="region"
+            aria-label="Bollinger Bands, price SMA, EMA, volume and RSI"
+            options={{
+              ...Chart.lightChartOptions,
+              autoSize: true,
+              layout: { ...Chart.lightChartOptions.layout, panes: { enableResize: true } },
+            }}
+          >
+            <Chart.Pane id="price">
+              <Chart.CandlestickSeries id="candles" data={candles} />
+              <Show when={selection().includes("bands")}>
+                <Indicators.BollingerBands
+                  id="bands"
+                  {...bandsInput()}
+                  visible={visible()}
+                  onVisibleChange={setVisible}
+                />
+              </Show>
+              <Show when={selection().includes("sma")}>
+                <Indicators.SMA id="sma" {...smaInput()} />
+              </Show>
+              <Show when={selection().includes("ema")}>
+                <Indicators.EMA
+                  id="ema"
+                  {...emaInput()}
+                  visible={emaVisible()}
+                  onVisibleChange={setEmaVisible}
+                />
+              </Show>
+            </Chart.Pane>
+            <Chart.Pane id="volume" stretchFactor={0.25}>
+              <Chart.HistogramSeries
+                id="volume"
+                data={volume}
+                options={{ priceFormat: { type: "volume" } }}
+              />
+            </Chart.Pane>
+            <Chart.Pane id="rsi" stretchFactor={0.4}>
+              <Show when={selection().includes("rsi")}>
+                <Indicators.RSI
+                  id="rsi"
+                  {...rsiInput()}
+                  visible={rsiVisible()}
+                  onVisibleChange={setRsiVisible}
+                />
+              </Show>
+            </Chart.Pane>
+            <ChartLegend
+              priceSeries="candles"
+              volumeSeries="volume"
+              class="rounded-md bg-background/95 px-2"
+              formatValue={(value) => value.toLocaleString(undefined, { maximumFractionDigits: 4 })}
+            />
+          </Chart.Root>
+        )}
+      </For>
       <p role="status" class="text-sm text-muted-foreground">
         {supplied() ? "Application-calculated snapshot" : "Chart-local displayed source"} · Bands{" "}
         {period()}/{multiplier()} · SMA {smaPeriod()} · {priceInput().toUpperCase()}

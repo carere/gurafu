@@ -354,3 +354,74 @@ outside this contract at the pinned version.
 The **Extensions and lifecycle** example demonstrates nonzero-pane custom rendering,
 owned annotation/watermark/markers, empty versus removed state, retained movement
 and pane ordering, and moving a series before removing its old native pane.
+
+### Legend, selection and optional inspection
+
+Install `chart-legend` for the exact-time OHLC/indicator preview, or
+`chart-indicator-controls` for standalone selection. The legend installs core;
+selection installs only shared control presentation. Both reuse the shared
+Zaidan-derived native button and class utilities. These controls require no
+application Solux provider or website services.
+
+```tsx
+import { ChartLegend, useLegend } from "~/components/gurafu/chart-legend";
+import { ChartIndicatorControls } from "~/components/gurafu/chart-indicator-controls";
+
+<Chart.Root devtools={development ? { name: "Prices / daily" } : false}>
+  <Chart.Pane id="price">
+    <Chart.CandlestickSeries id="candles" data={displayedCandles()} />
+    <Show when={selected().includes("sma")}>
+      <Indicators.SMA id="sma" source="candles" />
+    </Show>
+  </Chart.Pane>
+  <ChartLegend priceSeries="candles" />
+</Chart.Root>
+<ChartIndicatorControls
+  items={[{ value: "sma", label: "Price SMA" }]}
+  value={selected()}
+  onValueChange={setSelected}
+/>
+```
+
+`useLegend({ priceSeries, volumeSeries? })` returns a readonly accessor with
+`time`, nullable `ohlc`/`volume`, mounted `indicators`, and a visible logical
+`count` (Bands once). Missing exact timestamps, whitespace and warmup return
+null; the default UI displays an em dash. Zero remains a value. Before hover
+and after leave/clear, the time follows the latest displayed price row. Local
+`chart.setCrosshairPosition(price, time, seriesController)` selects that exact
+time; it and `clearCrosshairPosition()` suppress pointer callbacks. Targets
+must be live series owned by that chart. Native Time types and native missing
+time placement limits remain in force; the legend never uses nearest values.
+Removing a previously selected point or changing dataset context resets the
+selection. Calculated rows see only the currently displayed source, including
+consumer-driven replay prefixes.
+
+Legend `expanded`/`defaultExpanded`/`onExpandedChange` and indicator
+`visible`/`defaultVisible`/`onVisibleChange` distinguish controlled requests
+from private defaults. Declined or delayed requests do not change controlled
+display. Hidden indicators retain rows; unmounted indicators disappear.
+`requestIndicatorVisibility` rejects unknown/removed ids and never mounts an
+indicator. Selection is separate: consumers mount Solid declarations themselves.
+Selection supports either `value` or `defaultValue`; controlled changes only
+request a new value through `onValueChange`.
+
+Use legend `labels` (including `indicatorsById`), `formatValue`, `renderOHLC`,
+`renderIndicator`, ordinary HTML attributes, `class` and `style` to localize and
+position it. Its default placement is an overlay sibling of the inner native
+surface. Root supplies relative positioning; explicit consumer styles win.
+For flow placement, use `style={{ position: "static" }}` and allocate layout
+space. Native buttons support keyboard activation and pressed/expanded labels.
+Controls never call focus on the chart surface or set consumer pointer intent.
+
+`devtools={false | { name }}` is read when Root mounts and defaults to off.
+Every opt-in browser mount uses published Solux 4.1.0's supported enhancer with
+an independent identity, including repeated names. Unmount calls the owned
+store's `dispose`; siblings and application connections stay active. Supported
+Redux DevTools reset/restore updates private visibility, legend expansion and
+local time selection reactively. Controlled props remain authoritative. Native
+handles, DOM, datasets, feeds and consumer selection/replay are outside these
+snapshots. Restore cannot revive an unmounted chart or rewrite application
+state. This is private interaction inspection, with no persistence schema,
+deterministic effect/data replay or shared application timeline contract.
+The Indicators and panes example includes an explicit inspector toggle which
+remounts that chart, plus actual legend/selection controls.

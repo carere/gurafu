@@ -8,6 +8,9 @@ generic CustomSeries, owned primitives/Markers, pane movement/order, dataset gen
 scoped accessors and lifecycle-aware controller types; see the [README](../../README.md)
 for installation and supported behavior. The optional `chart-indicators` item implements Bollinger Bands, SMA, EMA and RSI declarations,
 pure calculations and visibility requests; see the README for defaults and options.
+The optional `chart-legend` and `chart-indicator-controls` items provide exact-time
+readonly presentation and consumer-owned selection. Root also supports local
+crosshair commands and opt-in per-instance Solux Redux DevTools inspection.
 Other examples illustrate later slices of
 [spec #17](https://github.com/carere/gurafu/issues/17), which resolves numerical,
 website and acceptance decisions. Its SPA-first amendment supersedes the dedicated

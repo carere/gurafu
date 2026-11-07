@@ -2,7 +2,11 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chartSpaDirectory as consumer } from "./chart-spa-path";
 import { prepareCompositionExamples } from "./prepare-chart-composition-19";
-import { installIndicators22, verifyCoreOnly22 } from "./prepare-indicators-22";
+import {
+  installIndicators22,
+  verifyCoreOnly22,
+  verifyOptionalWidgets24,
+} from "./prepare-indicators-22";
 
 await rm(consumer, { recursive: true, force: true });
 await mkdir(consumer, { recursive: true });
@@ -46,6 +50,7 @@ async function run(cmd: string[], cwd: string) {
 await run(["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"], consumer);
 await verifyCoreOnly22(consumer);
 await installIndicators22(consumer);
+await verifyOptionalWidgets24(consumer);
 // These belong to the website example, never the registry dependency manifest.
 await run(
   [
