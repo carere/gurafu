@@ -157,6 +157,7 @@ export function createManagedData<D extends { time: Time }>(config: {
   coordinator: DataCoordinator;
   id: string;
   snapshot: boolean;
+  populated?: (row: D) => boolean;
   data: Accessor<readonly D[] | undefined>;
   defaultData: Accessor<readonly D[] | undefined>;
   changed: Accessor<DataChangedHandler | undefined>;
@@ -256,7 +257,8 @@ export function createManagedData<D extends { time: Time }>(config: {
   }
   return {
     ready,
-    hasData: () => displayed().some((row) => "close" in row || "value" in row),
+    hasData: () =>
+      displayed().some(config.populated ?? ((row) => "close" in row || "value" in row)),
     setData(rows: readonly D[]) {
       requireReady();
       replace(rows);

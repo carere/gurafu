@@ -54,13 +54,22 @@ export async function verifyCoreOnly22(consumer: string) {
     "src/public-types.tsx",
     "src/public-types-19.tsx",
     "src/data-types.tsx",
+    "src/extensions-types-27.tsx",
+    "src/extensions-27.tsx",
   ])
     await cp(resolve("tests/chart-spa", file), resolve(directory, file));
+  for (const file of ["extensions-view.ts", "extensions-example.tsx"])
+    await cp(resolve(consumer, "src", file), resolve(directory, "src", file));
   await writeFile(
     resolve(directory, "src/main.tsx"),
     `import { render } from "solid-js/web";
 import * as Chart from "~/components/gurafu/chart";
-render(() => <Chart.Root><Chart.Pane id="price"><Chart.LineSeries id="price" data={[]} /></Chart.Pane></Chart.Root>, document.getElementById("root")!);`,
+import { Extensions27 } from "./extensions-27";
+import { ExtensionsLifecycle } from "./extensions-example";
+import "./style.css";
+if (location.search.includes("extensions27")) render(() => <Extensions27 />, document.getElementById("root")!);
+else if (location.search.includes("extensions-example")) render(() => <ExtensionsLifecycle />, document.getElementById("root")!);
+else render(() => <Chart.Root><Chart.Pane id="price"><Chart.LineSeries id="price" data={[]} /></Chart.Pane></Chart.Root>, document.getElementById("root")!);`,
   );
   const commands = [
     ["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"],

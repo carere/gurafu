@@ -8,6 +8,14 @@ await rm(consumer, { recursive: true, force: true });
 await mkdir(consumer, { recursive: true });
 await cp("tests/chart-spa", consumer, { recursive: true });
 await prepareCompositionExamples(consumer);
+await cp("src/components/examples/extensions-view.ts", resolve(consumer, "src/extensions-view.ts"));
+await writeFile(
+  resolve(consumer, "src/extensions-example.tsx"),
+  (await readFile("src/components/examples/extensions.tsx", "utf8")).replaceAll(
+    "@/registry/kobalte/chart/chart",
+    "~/components/gurafu/chart",
+  ),
+);
 await writeFile(
   resolve(consumer, "src/indicators-example-22.tsx"),
   (await readFile("src/components/examples/indicators-panes.tsx", "utf8")).replaceAll(

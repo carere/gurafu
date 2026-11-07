@@ -13,3 +13,5 @@ export const chartSpaPort =
   42000 +
   (Number.parseInt(createHash("sha256").update(process.cwd()).digest("hex").slice(0, 6), 16) %
     10000);
+
+export const chartCoreSpaPort = chartSpaPort + 10000;
