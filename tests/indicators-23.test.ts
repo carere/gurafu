@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import type { BusinessDay } from "lightweight-charts";
-import { calculateEMA, calculateRSI } from "../src/registry/kobalte/chart/indicator-calculations";
+import {
+  calculateBollingerBands,
+  calculateEMA,
+  calculateRSI,
+  calculateSMA,
+} from "../src/registry/kobalte/chart/indicator-calculations";
 
 test("N=3 EMA seeds from the full first SMA and then smooths", () => {
   const rows = [1, 2, 3, 4].map((value, i) => ({ time: `2026-01-0${i + 1}`, value }));
@@ -145,4 +150,79 @@ test("RSI ratios stay finite at large finite prices without overflow or an epsil
     if (!("value" in row)) throw new Error("Missing full RSI seed");
     near(row.value, expected);
   }
+});
+
+test("large finite windows retain representable means and population band widths", () => {
+  const rows = Array.from({ length: 20 }, (_, i) => ({
+    time: `day-${i}`,
+    value: i % 2 ? 3e307 : 1e307,
+  }));
+  for (const calculate of [calculateSMA, calculateEMA]) {
+    const result = calculate(rows, { period: 20 })[19];
+    if (!("value" in result)) throw new Error("Missing full price moving average seed");
+    near(result.value, 2e307);
+  }
+  const bands = calculateBollingerBands(rows, { period: 20, multiplier: 1 })[19];
+  if (bands.middle === undefined) throw new Error("Missing full Bands window");
+  near(bands.middle, 2e307);
+  near(bands.lower, 1e307);
+  near(bands.upper, 3e307);
+  const extreme = [-1e308, 1e308].map((value, i) => ({ time: `day-${i}`, value }));
+  for (const calculate of [calculateSMA, calculateEMA]) {
+    expect(calculate(extreme, { period: 2 })[1]).toEqual({ time: "day-1", value: 0 });
+  }
+  const extremeBands = calculateBollingerBands(extreme, { period: 2, multiplier: 1 })[1];
+  if (extremeBands.middle === undefined) throw new Error("Missing extreme Bands window");
+  expect(extremeBands.middle).toBe(0);
+  near(extremeBands.lower, -1e308);
+  near(extremeBands.upper, 1e308);
+  const skewed = [0, 1.7e308, -1.7e308, -1.7e308, -1.7e308].map((value, i) => ({
+    time: `day-${i}`,
+    value,
+  }));
+  const skewedBands = calculateBollingerBands(skewed, { period: 5, multiplier: 0.25 })[4];
+  if (skewedBands.middle === undefined) throw new Error("Missing skewed Bands window");
+  near(skewedBands.middle, -6.8e307);
+  near(skewedBands.lower, -1.02e308);
+  near(skewedBands.upper, -3.4e307);
+});
+
+test("RSI Wilder smoothing retains finite averages when the weighted numerator would overflow", () => {
+  const rows = Array.from({ length: 22 }, (_, i) => ({
+    time: `day-${i}`,
+    value: i % 2 ? 3e307 : 1e307,
+  }));
+  const result = calculateRSI(rows, { period: 20 });
+  expect(result.slice(0, 20)).toEqual(rows.slice(0, 20).map(({ time }) => ({ time })));
+  for (const [index, expected] of [
+    [20, 50],
+    [21, 52.5],
+  ]) {
+    const row = result[index];
+    if (!("value" in row)) throw new Error("Missing complete RSI window");
+    near(row.value, expected);
+  }
+});
+
+test("RSI retains finite ratios when opposite finite prices have an unrepresentable difference", () => {
+  const rows = [-1e308, 1e308, -1e308, 1e308, 0].map((value, i) => ({ time: `day-${i}`, value }));
+  const result = calculateRSI(rows, { period: 3 });
+  expect(result.slice(0, 3)).toEqual(rows.slice(0, 3).map(({ time }) => ({ time })));
+  for (const [index, expected] of [
+    [3, 200 / 3],
+    [4, 160 / 3],
+  ]) {
+    const row = result[index];
+    if (!("value" in row)) throw new Error("Missing full RSI seed");
+    near(row.value, expected);
+  }
+  const periodOne = [...rows, { time: "day-5", value: Number.MIN_VALUE }];
+  expect(calculateRSI(periodOne, { period: 1 })).toEqual([
+    { time: "day-0" },
+    { time: "day-1", value: 100 },
+    { time: "day-2", value: 0 },
+    { time: "day-3", value: 100 },
+    { time: "day-4", value: 0 },
+    { time: "day-5", value: 100 },
+  ]);
 });
