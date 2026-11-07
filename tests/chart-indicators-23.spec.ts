@@ -23,10 +23,12 @@ type Fixture = {
   setPane(v: boolean): void;
   switch(empty?: boolean): void;
 };
-const near = (actual: number, expected: number) =>
+const near = (actual: number, expected: number) => {
+  expect(Number.isFinite(actual)).toBe(true);
   expect(Math.abs(actual - expected)).toBeLessThanOrEqual(
     1e-10 + 1e-10 * Math.max(Math.abs(actual), Math.abs(expected)),
   );
+};
 function equivalent(actual: unknown, expected: unknown) {
   if (typeof expected === "number") {
     near(actual as number, expected);

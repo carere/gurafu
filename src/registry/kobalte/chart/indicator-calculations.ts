@@ -155,6 +155,9 @@ export function calculateRSI<T extends Time>(
         ? losses.push(loss)?.mean
         : (averageLoss * (period - 1) + loss) / period;
     if (averageGain === undefined || averageLoss === undefined) return { time: row.time };
+    // Normalize the ratio before multiplying by 100. Valid finite prices can
+    // produce gains large enough for 100 * averageGain to overflow.
+    const scale = Math.max(averageGain, averageLoss);
     const result =
       averageGain === 0
         ? averageLoss === 0
@@ -162,7 +165,7 @@ export function calculateRSI<T extends Time>(
           : 0
         : averageLoss === 0
           ? 100
-          : (100 * averageGain) / (averageGain + averageLoss);
+          : (100 * (averageGain / scale)) / (averageGain / scale + averageLoss / scale);
     return { time: row.time, value: result };
   });
 }

@@ -12,10 +12,12 @@ test("N=3 EMA seeds from the full first SMA and then smooths", () => {
   ]);
 });
 
-const near = (actual: number, expected: number) =>
+const near = (actual: number, expected: number) => {
+  expect(Number.isFinite(actual)).toBe(true);
   expect(Math.abs(actual - expected)).toBeLessThanOrEqual(
     1e-10 + 1e-10 * Math.max(Math.abs(actual), Math.abs(expected)),
   );
+};
 test("N=3 RSI seeds the first three changes and applies Wilder smoothing", () => {
   const rows = [1, 2, 1, 2, 3].map((value, i) => ({ time: `day-${i}`, value }));
   const result = calculateRSI(rows, { period: 3 });
@@ -130,4 +132,17 @@ test("all OHLC selectors and direct values preserve immutable inputs, parameters
   expect(calculateEMA(input, { period: 1 })[0]).toEqual({ time, value: 4 });
   expect(input[0]).toEqual({ time, open: 2, high: 10, low: -2, close: 4 });
   expect(calculateEMA(input, { period: 1 })[0].time).toBe(time);
+});
+
+test("RSI ratios stay finite at large finite prices without overflow or an epsilon flat rule", () => {
+  const rows = [0, 1e307, 0, 1e307, 2e307].map((value, i) => ({ time: `day-${i}`, value }));
+  const result = calculateRSI(rows, { period: 3 });
+  for (const [index, expected] of [
+    [3, 200 / 3],
+    [4, 700 / 9],
+  ]) {
+    const row = result[index];
+    if (!("value" in row)) throw new Error("Missing full RSI seed");
+    near(row.value, expected);
+  }
 });
